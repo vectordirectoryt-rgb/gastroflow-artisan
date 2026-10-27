@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GastroFlow - Gestión de Costos, Inventario y Producción</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fbf7ee',
+              100: '#f5edd6',
+              500: '#d97706',
+              600: '#b45309',
+              700: '#92400e',
+            },
+            primary: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM & Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Chart.js para visualizaciones financieras -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Estilos de barra de scroll sutil */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+  <div id="root"></div>
+
+  <!-- SCRIPT DE LA APLICACIÓN REACT -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- DATOS DEMO INICIALES (MODO EJEMPLO) ---
+    const INITIAL_INSUMOS = [
+      { id: "ins-1", nombre: "Harina de Trigo Especial", categoria: "Materia Prima", unidad: "g", costoUnitario: 0.0018, stock: 8500, stockMinimo: 2000 },
+      { id: "ins-2", nombre: "Mantequilla sin Sal", categoria: "Materia Prima", unidad: "g", costoUnitario: 0.012, stock: 3200, stockMinimo: 1000 },
+      { id: "ins-3", nombre: "Chispas de Chocolate 60%", categoria: "Materia Prima", unidad: "g", costoUnitario: 0.015, stock: 2400, stockMinimo: 800 },
+      { id: "ins-4", nombre: "Azúcar Morena", categoria: "Materia Prima", unidad: "g", costoUnitario: 0.0022, stock: 4500, stockMinimo: 1500 },
+      { id: "ins-5", nombre: "Huevos de Campo", categoria: "Materia Prima", unidad: "unidad", costoUnitario: 0.25, stock: 60, stockMinimo: 24 },
+      { id: "ins-6", nombre: "Caja Kraft 6 Galletas", categoria: "Empaque", unidad: "unidad", costoUnitario: 0.45, stock: 80, stockMinimo: 30 },
+      { id: "ins-7", nombre: "Sticker Logo Laminado", categoria: "Empaque", unidad: "unidad", costoUnitario: 0.08, stock: 250, stockMinimo: 50 },
+      { id: "ins-8", nombre: "Carne de Res Molida 80/20", categoria: "Materia Prima", unidad: "g", costoUnitario: 0.011, stock: 4000, stockMinimo: 1500 },
+      { id: "ins-9", nombre: "Pan Brioche Artesanal", categoria: "Materia Prima", unidad: "unidad", costoUnitario: 0.60, stock: 40, stockMinimo: 15 },
+      { id: "ins-10", nombre: "Caja Clamshell Hamburguesa", categoria: "Empaque", unidad: "unidad", costoUnitario: 0.35, stock: 50, stockMinimo: 20 },
+    ];
+
+    const INITIAL_PRODUCTOS = [
+      {
+        id: "prod-1",
+        nombre: "Pack 6 Galletas Choco-Chips",
+        categoria: "Pastelería",
+        unidadesPorLote: 6, // 1 lote rinde 6 packs (ej: 36 galletas en total)
+        precioVenta: 7.50,
+        items: [
+          { insumoId: "ins-1", cantidad: 600 },   // 600g harina
+          { insumoId: "ins-2", cantidad: 350 },   // 350g mantequilla
+          { insumoId: "ins-3", cantidad: 300 },   // 300g chocolate
+          { insumoId: "ins-4", cantidad: 250 },   // 250g azúcar
+          { insumoId: "ins-5", cantidad: 3 },     // 3 huevos
+          { insumoId: "ins-6", cantidad: 6 },     // 6 cajas
+          { insumoId: "ins-7", cantidad: 6 },     // 6 stickers
+        ]
+      },
+      {
+        id: "prod-2",
+        nombre: "Hamburguesa Smash Doble",
+        categoria: "Gastronomía",
+        unidadesPorLote: 10, // 1 lote = 10 hamburguesas
+        precioVenta: 8.90,
+        items: [
+          { insumoId: "ins-8", cantidad: 1800 }, // 1800g carne (180g por hamburguesa)
+          { insumoId: "ins-9", cantidad: 10 },   // 10 panes
+          { insumoId: "ins-10", cantidad: 10 },  // 10 cajas
+          { insumoId: "ins-7", cantidad: 10 },   // 10 stickers
+        ]
+      }
+    ];
+
+    const INITIAL_VENTAS = [
+      { id: "v-1", productoId: "prod-1", cantidad: 4, precioUnitario: 7.50, costoUnitario: 2.76, fecha: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0] },
+      { id: "v-2", productoId: "prod-2", cantidad: 8, precioUnitario: 8.90, costoUnitario: 3.12, fecha: new Date(Date.now() - 86400000).toISOString().split('T')[0] },
+      { id: "v-3", productoId: "prod-1", cantidad: 5, precioUnitario: 7.50, costoUnitario: 2.76, fecha: new Date().toISOString().split('T')[0] },
+      { id: "v-4", productoId: "prod-2", cantidad: 12, precioUnitario: 8.90, costoUnitario: 3.12, fecha: new Date().toISOString().split('T')[0] },
+    ];
+
+    // Helper de formato monetario
+    const formatMoney = (amount) => {
+      return "$" + Number(amount || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    function App() {
+      // Estado de navegación
+      const [activeTab, setActiveTab] = useState("dashboard");
+
+      // Datos persistentes en LocalStorage
+      const [insumos, setInsumos] = useState(() => {
+        const saved = localStorage.getItem("gf_insumos");
+        return saved ? JSON.parse(saved) : INITIAL_INSUMOS;
+      });
+
+      const [productos, setProductos] = useState(() => {
+        const saved = localStorage.getItem("gf_productos");
+        return saved ? JSON.parse(saved) : INITIAL_PRODUCTOS;
+      });
+
+      const [ventas, setVentas] = useState(() => {
+        const saved = localStorage.getItem("gf_ventas");
+        return saved ? JSON.parse(saved) : INITIAL_VENTAS;
+      });
+
+      const [producciones, setProducciones] = useState(() => {
+        const saved = localStorage.getItem("gf_producciones");
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      // Notificaciones Toast
+      const [toast, setToast] = useState(null);
+      const showToast = (message, type = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      // Guardado automático en localStorage
+      useEffect(() => {
+        localStorage.setItem("gf_insumos", JSON.stringify(insumos));
+      }, [insumos]);
+
+      useEffect(() => {
+        localStorage.setItem("gf_productos", JSON.stringify(productos));
+      }, [productos]);
+
+      useEffect(() => {
+        localStorage.setItem("gf_ventas", JSON.stringify(ventas));
+      }, [ventas]);
+
+      useEffect(() => {
+        localStorage.setItem("gf_producciones", JSON.stringify(producciones));
+      }, [producciones]);
+
+      // Alertas de Stock Bajo
+      const stockAlerts = useMemo(() => {
+        return insumos.filter(i => i.stock <= i.stockMinimo);
+      }, [insumos]);
+
+      // Función para calcular costo de un producto
+      const calculateProductCost = (prod) => {
+        let totalLote = 0;
+        let costoIngredientes = 0;
+        let costoEmpaques = 0;
+
+        (prod.items || []).forEach(item => {
+          const insumo = insumos.find(i => i.id === item.insumoId);
+          if (insumo) {
+            const costoItem = (insumo.costoUnitario || 0) * (item.cantidad || 0);
+            totalLote += costoItem;
+            if (insumo.categoria === "Empaque") {
+              costoEmpaques += costoItem;
+            } else {
+              costoIngredientes += costoItem;
+            }
+          }
+        });
+
+        const unidades = prod.unidadesPorLote > 0 ? prod.unidadesPorLote : 1;
+        const costoUnitario = totalLote / unidades;
+        const precioVenta = prod.precioVenta || 0;
+        const gananciaUnitaria = precioVenta - costoUnitario;
+        const margenPorcentaje = precioVenta > 0 ? (gananciaUnitaria / precioVenta) * 100 : 0;
+
+        return {
+          totalLote,
+          costoUnitario,
+          costoIngredientes,
+          costoEmpaques,
+          gananciaUnitaria,
+          margenPorcentaje,
+        };
+      };
+
+      // Restablecer aplicación (Modo Virgen o Recarga de Demostración)
+      const resetToVirgin = () => {
+        if (confirm("¿Deseas vaciar todos los datos y dejar la aplicación en modo virgen (en blanco)?")) {
+          setInsumos([]);
+          setProductos([]);
+          setVentas([]);
+          setProducciones([]);
+          showToast("Aplicación restablecida en modo virgen.", "info");
+        }
+      };
+
+      const loadDemoData = () => {
+        if (confirm("¿Deseas recargar los datos de ejemplo predeterminados?")) {
+          setInsumos(INITIAL_INSUMOS);
+          setProductos(INITIAL_PRODUCTOS);
+          setVentas(INITIAL_VENTAS);
+          setProducciones([]);
+          showToast("Datos de ejemplo cargados con éxito.");
+        }
+      };
+
+      const exportBackup = () => {
+        const data = { insumos, productos, ventas, producciones, exportDate: new Date() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `GastroFlow_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        showToast("Copia de seguridad exportada con éxito.");
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          {/* TOAST NOTIFICATION */}
+          {toast && (
+            <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white font-medium text-sm transition-all transform animate-bounce ${
+              toast.type === "error" ? "bg-rose-600" : toast.type === "info" ? "bg-slate-800" : "bg-emerald-600"
+            }`}>
+              <span>{toast.message}</span>
+            </div>
+          )}
+
+          {/* TOPBAR / NAVBAR */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center h-16">
+                {/* Logo & Marca */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20 font-bold text-xl">
+                    🥗
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-slate-900 tracking-tight text-lg">Gastro<span className="text-amber-600">Flow</span></span>
+                    <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 rounded-full">Costos & Lotes</span>
+                  </div>
+                </div>
+
+                {/* Navegación Desktop */}
+                <nav className="hidden md:flex space-x-1">
+                  {[
+                    { id: "dashboard", label: "Dashboard", icon: "📊" },
+                    { id: "insumos", label: "Insumos & Empaques", icon: "📦" },
+                    { id: "inventario", label: "Inventario & Producción", icon: "⚡", badge: stockAlerts.length > 0 ? stockAlerts.length : null },
+                    { id: "recetas", label: "Recetas & Costeo", icon: "🧾" },
+                    { id: "ventas", label: "Ventas & Historial", icon: "💰" },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                        activeTab === tab.id
+                          ? "bg-amber-50 text-amber-900 shadow-sm border border-amber-200/60"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      {tab.badge && (
+                        <span className="ml-1 px-1.5 py-0.2 text-[11px] font-bold bg-rose-500 text-white rounded-full">
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </nav>
+
+                {/* Utilidades de Respaldo y Modo Virgen */}
+                <div className="flex items-center gap-2">
+                  <div className="relative group">
+                    <button
+                      title="Opciones de Base de Datos"
+                      className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-sm flex items-center gap-1.5 border border-slate-200"
+                    >
+                      ⚙️ <span className="hidden sm:inline text-xs font-semibold">Datos</span>
+                    </button>
+                    <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 hidden group-hover:block z-50">
+                      <button
+                        onClick={exportBackup}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2"
+                      >
+                        💾 Exportar Respaldo
+                      </button>
+                      <button
+                        onClick={loadDemoData}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg flex items-center gap-2"
+                      >
+                        🔄 Cargar Datos Demo
+                      </button>
+                      <hr className="my-1 border-slate-100" />
+                      <button
+                        onClick={resetToVirgin}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2"
+                      >
+                        🗑️ Limpiar Todo (Virgen)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Tabbar */}
+            <div className="md:hidden flex overflow-x-auto px-2 py-2 border-t border-slate-100 space-x-1">
+              {[
+                { id: "dashboard", label: "Dashboard", icon: "📊" },
+                { id: "insumos", label: "Insumos", icon: "📦" },
+                { id: "inventario", label: "Producción", icon: "⚡" },
+                { id: "recetas", label: "Recetas", icon: "🧾" },
+                { id: "ventas", label: "Ventas", icon: "💰" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                    activeTab === tab.id ? "bg-amber-500 text-white" : "text-slate-600 bg-slate-100"
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {/* CONTENIDO PRINCIPAL */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {activeTab === "dashboard" && (
+              <DashboardView
+                insumos={insumos}
+                productos={productos}
+                ventas={ventas}
+                producciones={producciones}
+                calculateProductCost={calculateProductCost}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === "insumos" && (
+              <InsumosView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "inventario" && (
+              <InventarioProduccionView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                productos={productos}
+                producciones={producciones}
+                setProducciones={setProducciones}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "recetas" && (
+              <RecetasCostosView
+                productos={productos}
+                setProductos={setProductos}
+                insumos={insumos}
+                calculateProductCost={calculateProductCost}
+                showToast={showToast}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === "ventas" && (
+              <VentasHistorialView
+                ventas={ventas}
+                setVentas={setVentas}
+                productos={productos}
+                calculateProductCost={calculateProductCost}
+                showToast={showToast}
+              />
+            )}
+          </main>
+
+          {/* FOOTER */}
+          <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+            GastroFlow SaaS &bull; Diseñado para Gastronomía, Obradores y Pequeños Negocios &bull; Todos los datos se guardan automáticamente en tu navegador.
+          </footer>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 1. SECCIÓN: INSUMOS (MATERIA PRIMA Y EMPAQUE)
+    // ==========================================
+    function InsumosView({ insumos, setInsumos, showToast }) {
+      const [filtroCategoria, setFiltroCategoria] = useState("Todos");
+      const [busqueda, setBusqueda] = useState("");
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editingId, setEditingId] = useState(null);
+
+      // Formulario
+      const [nombre, setNombre] = useState("");
+      const [categoria, setCategoria] = useState("Materia Prima");
+      const [unidad, setUnidad] = useState("g");
+      const [costoUnitario, setCostoUnitario] = useState("");
+      const [stock, setStock] = useState("");
+      const [stockMinimo, setStockMinimo] = useState("");
+
+      // Calculadora de compra mayorista
+      const [usarCalculadora, setUsarCalculadora] = useState(false);
+      const [precioPaquete, setPrecioPaquete] = useState("");
+      const [tamanoPaquete, setTamanoPaquete] = useState("");
+
+      const handleCalcularCostoUnitario = () => {
+        const p = parseFloat(precioPaquete);
+        const t = parseFloat(tamanoPaquete);
+        if (p > 0 && t > 0) {
+          const resultado = p / t;
+          setCostoUnitario(resultado.toFixed(6));
+        }
+      };
+
+      const handleOpenModal = (insumo = null) => {
+        if (insumo) {
+          setEditingId(insumo.id);
+          setNombre(insumo.nombre);
+          setCategoria(insumo.categoria);
+          setUnidad(insumo.unidad);
+          setCostoUnitario(insumo.costoUnitario);
+          setStock(insumo.stock);
+          setStockMinimo(insumo.stockMinimo);
+        } else {
+          setEditingId(null);
+          setNombre("");
+          setCategoria("Materia Prima");
+          setUnidad("g");
+          setCostoUnitario("");
+          setStock(0);
+          setStockMinimo(500);
+        }
+        setUsarCalculadora(false);
+        setPrecioPaquete("");
+        setTamanoPaquete("");
+        setIsModalOpen(true);
+      };
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if (!nombre.trim() || !costoUnitario || parseFloat(costoUnitario) <= 0) {
+          alert("Por favor ingresa un nombre y un costo unitario válido.");
+          return;
+        }
+
+        const data = {
+          nombre: nombre.trim(),
+          categoria,
+          unidad,
+          costoUnitario: parseFloat(costoUnitario),
+          stock: parseFloat(stock) || 0,
+          stockMinimo: parseFloat(stockMinimo) || 0,
+        };
+
+        if (editingId) {
+          setInsumos(prev => prev.map(item => item.id === editingId ? { ...item, ...data } : item));
+          showToast("Insumo actualizado con éxito.");
+        } else {
+          const nuevo = { id: "ins-" + Date.now(), ...data };
+          setInsumos(prev => [...prev, nuevo]);
+          showToast("Nuevo insumo registrado.");
+        }
+        setIsModalOpen(false);
+      };
+
+      const handleDelete = (id, nombreInsumo) => {
+        if (confirm(`¿Estás seguro de eliminar el insumo "${nombreInsumo}"?`)) {
+          setInsumos(prev => prev.filter(item => item.id !== id));
+          showToast("Insumo eliminado.", "info");
+        }
+      };
+
+      const insumosFiltrados = insumos.filter(item => {
+        const matchCat = filtroCategoria === "Todos" || item.categoria === filtroCategoria;
+        const matchBusq = item.nombre.toLowerCase().includes(busqueda.toLowerCase());
+        return matchCat && matchBusq;
+      });
+
+      return (
+        <div className="space-y-6">
+          {/* Header de la sección */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Gestión de Insumos & Empaques</h2>
+              <p className="text-sm text-slate-500 mt-1">Registra materias primas comestibles y elementos de presentación con su costo base.</p>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-sm transition-all"
+            >
+              <span className="text-lg">+</span> Nuevo Insumo
+            </button>
+          </div>
+
+          {/* Filtros y Búsqueda */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {["Todos", "Materia Prima", "Empaque"].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFiltroCategoria(cat)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    filtroCategoria === cat
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {cat === "Todos" ? "Todos los Insumos" : cat}
+                </button>
+              ))}
+            </div>
+            <div className="w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Buscar insumo..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Tabla de Insumos */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {insumosFiltrados.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">
+                <div className="text-4xl mb-3">📦</div>
+                <p className="font-semibold text-slate-700">No hay insumos registrados</p>
+                <p className="text-xs text-slate-500 mt-1">Haz clic en "+ Nuevo Insumo" para empezar a costear tus productos.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3.5 px-4">Nombre del Insumo</th>
+                      <th className="py-3.5 px-4">Categoría</th>
+                      <th className="py-3.5 px-4">Unidad</th>
+                      <th className="py-3.5 px-4 text-right">Costo Unitario Base</th>
+                      <th className="py-3.5 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {insumosFiltrados.map(insumo => (
+                      <tr key={insumo.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-slate-800">
+                          {insumo.nombre}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            insumo.categoria === "Empaque"
+                              ? "bg-purple-50 text-purple-700 border border-purple-200"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          }`}>
+                            {insumo.categoria}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-mono text-xs">
+                          {insumo.unidad}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-slate-900 font-mono">
+                          {formatMoney(insumo.costoUnitario)} <span className="text-xs text-slate-400 font-normal">/ {insumo.unidad}</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleOpenModal(insumo)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(insumo.id, insumo.nombre)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* MODAL CREAR / EDITAR INSUMO */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {editingId ? "Editar Insumo" : "Nuevo Insumo o Empaque"}
+                  </h3>
+                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                </div>
+
+                <form onSubmit={handleSave} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nombre</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Harina de almendras, Caja cartón..."
+                      value={nombre}
+                      onChange={e => setNombre(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Categoría</label>
+                      <select
+                        value={categoria}
+                        onChange={e => setCategoria(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                      >
+                        <option value="Materia Prima">Materia Prima</option>
+                        <option value="Empaque">Empaque / Presentación</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Unidad de Medida</label>
+                      <select
+                        value={unidad}
+                        onChange={e => setUnidad(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                      >
+                        <option value="g">Gramos (g)</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="ml">Mililitros (ml)</option>
+                        <option value="L">Litros (L)</option>
+                        <option value="unidad">Unidad / Pieza</option>
+                        <option value="porcion">Porción</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Campo de Costo Unitario con Calculadora Inteligente */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-bold text-slate-700 uppercase">Costo Unitario ($ por {unidad})</label>
+                      <button
+                        type="button"
+                        onClick={() => setUsarCalculadora(!usarCalculadora)}
+                        className="text-[11px] text-amber-600 font-bold hover:underline"
+                      >
+                        {usarCalculadora ? "Ocultar Calculadora" : "🧮 Calcular desde empaque"}
+                      </button>
+                    </div>
+
+                    {usarCalculadora && (
+                      <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 mb-2 space-y-2">
+                        <p className="text-[11px] text-amber-900 font-medium">¿Compraste un paquete grande? Calcula el costo exacto por {unidad}:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="Precio pagado ($)"
+                            value={precioPaquete}
+                            onChange={e => setPrecioPaquete(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-lg border border-amber-200 text-xs bg-white"
+                          />
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder={`Total en ${unidad}`}
+                            value={tamanoPaquete}
+                            onChange={e => setTamanoPaquete(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-lg border border-amber-200 text-xs bg-white"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCalcularCostoUnitario}
+                          className="w-full py-1 text-xs bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition"
+                        >
+                          Aplicar Costo Calculado
+                        </button>
+                      </div>
+                    )}
+
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      placeholder="Ej: 0.0025 o 0.45"
+                      value={costoUnitario}
+                      onChange={e => setCostoUnitario(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Stock Inicial y Mínimo */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Stock Disponible ({unidad})</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={stock}
+                        onChange={e => setStock(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Alerta Stock Mínimo ({unidad})</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={stockMinimo}
+                        onChange={e => setStockMinimo(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition"
+                    >
+                      Guardar Insumo
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 2. SECCIÓN: INVENTARIO & PRODUCCIÓN INTELIGENTE
+    // ==========================================
+    function InventarioProduccionView({ insumos, setInsumos, productos, producciones, setProducciones, showToast }) {
+      // Estado para compra rápida de stock
+      const [insumoEntradaId, setInsumoEntradaId] = useState("");
+      const [cantidadEntrada, setCantidadEntrada] = useState("");
+
+      // Estado para Producción por Lotes
+      const [selectedProductoId, setSelectedProductoId] = useState("");
+      const [lotesAProducir, setLotesAProducir] = useState(1);
+
+      // Entrada rápida de inventario
+      const handleEntradaStock = (e) => {
+        e.preventDefault();
+        const cant = parseFloat(cantidadEntrada);
+        if (!insumoEntradaId || cant <= 0) {
+          alert("Selecciona un insumo e ingresa una cantidad válida.");
+          return;
+        }
+
+        setInsumos(prev => prev.map(ins => {
+          if (ins.id === insumoEntradaId) {
+            return { ...ins, stock: (ins.stock || 0) + cant };
+          }
+          return ins;
+        }));
+
+        const target = insumos.find(i => i.id === insumoEntradaId);
+        showToast(`Stock actualizado: +${cant} ${target?.unidad} de ${target?.nombre}`);
+        setCantidadEntrada("");
+      };
+
+      // Cálculo de Validación Inteligente de Stock
+      const productoSeleccionado = productos.find(p => p.id === selectedProductoId);
+
+      const validacionStock = useMemo(() => {
+        if (!productoSeleccionado || lotesAProducir <= 0) return null;
+
+        const detalle = (productoSeleccionado.items || []).map(item => {
+          const insumo = insumos.find(i => i.id === item.insumoId);
+          const cantidadRequerida = (item.cantidad || 0) * lotesAProducir;
+          const stockActual = insumo ? insumo.stock : 0;
+          const falta = Math.max(0, cantidadRequerida - stockActual);
+          const esSuficiente = stockActual >= cantidadRequerida;
+
+          return {
+            insumoId: item.insumoId,
+            nombre: insumo ? insumo.nombre : "Insumo no encontrado",
+            unidad: insumo ? insumo.unidad : "",
+            requerida: cantidadRequerida,
+            disponible: stockActual,
+            falta,
+            esSuficiente
+          };
+        });
+
+        const hayFaltantes = detalle.some(d => !d.esSuficiente);
+
+        return { detalle, hayFaltantes };
+      }, [productoSeleccionado, lotesAProducir, insumos]);
+
+      // Confirmar Producción y Descontar Stock
+      const handleConfirmarProduccion = () => {
+        if (!validacionStock) return;
+        if (validacionStock.hayFaltantes) {
+          alert("No puedes procesar la producción. Faltan insumos en el inventario.");
+          return;
+        }
+
+        // Descontar del inventario
+        setInsumos(prev => prev.map(insumo => {
+          const itemReq = validacionStock.detalle.find(d => d.insumoId === insumo.id);
+          if (itemReq) {
+            return { ...insumo, stock: Math.max(0, insumo.stock - itemReq.requerida) };
+          }
+          return insumo;
+        }));
+
+        // Registrar en historial de producción
+        const nuevaProd = {
+          id: "prod-log-" + Date.now(),
+          productoNombre: productoSeleccionado.nombre,
+          lotes: lotesAProducir,
+          unidadesTotales: (productoSeleccionado.unidadesPorLote || 1) * lotesAProducir,
+          fecha: new Date().toLocaleString("es-ES"),
+        };
+        setProducciones(prev => [nuevaProd, ...prev]);
+
+        showToast(`¡Lote producido con éxito! Se descontó el inventario correspondiente.`);
+        setLotesAProducir(1);
+      };
+
+      return (
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Inventario & Producción por Lotes</h2>
+              <p className="text-sm text-slate-500 mt-1">Supervisa existencias, registra compras y valida la disponibilidad antes de hornear o ensamblar.</p>
+            </div>
+            {/* Formulario Rápido de Compra / Entrada de Stock */}
+            <form onSubmit={handleEntradaStock} className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+              <span className="text-xs font-bold text-slate-700 px-2">+ Entrada:</span>
+              <select
+                value={insumoEntradaId}
+                onChange={e => setInsumoEntradaId(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none"
+              >
+                <option value="">Selecciona insumo...</option>
+                {insumos.map(i => (
+                  <option key={i.id} value={i.id}>{i.nombre} ({i.unidad})</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                step="any"
+                placeholder="Cantidad"
+                value={cantidadEntrada}
+                onChange={e => setCantidadEntrada(e.target.value)}
+                className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition"
+              >
+                Sumar Stock
+              </button>
+            </form>
+          </div>
+
+          {/* SIMULADOR Y VALIDADOR INTELIGENTE DE PRODUCCIÓN */}
+          <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 rounded-2xl border border-amber-200/80 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">⚡</span>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Validador Inteligente de Producción</h3>
+                <p className="text-xs text-slate-600">Comprueba si tienes insumos suficientes antes de iniciar el lote y descuéntalos de una sola vez.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Producto a Elaborar</label>
+                <select
+                  value={selectedProductoId}
+                  onChange={e => setSelectedProductoId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="">-- Elige una receta para validar --</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} (1 Lote = {p.unidadesPorLote} unidades)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Cantidad de Lotes</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={lotesAProducir}
+                    onChange={e => setLotesAProducir(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  />
+                  <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">
+                    = {(productoSeleccionado?.unidadesPorLote || 0) * lotesAProducir} unid.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* TABLA DE VALIDACIÓN EN TIEMPO REAL */}
+            {validacionStock && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-4">Insumo Requerido</th>
+                        <th className="py-2.5 px-4 text-center">Necesario ({lotesAProducir} lotes)</th>
+                        <th className="py-2.5 px-4 text-center">Disponible</th>
+                        <th className="py-2.5 px-4 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {validacionStock.detalle.map(d => (
+                        <tr key={d.insumoId} className={d.esSuficiente ? "hover:bg-slate-50" : "bg-rose-50/50"}>
+                          <td className="py-2.5 px-4 font-semibold text-slate-800">{d.nombre}</td>
+                          <td className="py-2.5 px-4 text-center font-mono font-medium">{d.requerida.toLocaleString()} {d.unidad}</td>
+                          <td className="py-2.5 px-4 text-center font-mono">{d.disponible.toLocaleString()} {d.unidad}</td>
+                          <td className="py-2.5 px-4 text-center">
+                            {d.esSuficiente ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                ✓ Suficiente
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                                ⚠ Faltan {d.falta.toLocaleString()} {d.unidad}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* BOTÓN O ALERTA DE PRODUCCIÓN */}
+                {validacionStock.hayFaltantes ? (
+                  <div className="p-4 rounded-xl bg-rose-100 border border-rose-200 text-rose-900 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <span className="text-xl">🛑</span>
+                      <span>No es posible producir: El inventario disponible es insuficiente para completar el lote.</span>
+                    </div>
+                    <button
+                      disabled
+                      className="px-5 py-2.5 bg-rose-300 text-rose-700 font-bold text-xs rounded-xl cursor-not-allowed uppercase"
+                    >
+                      Producción Bloqueada
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <span className="text-xl">✅</span>
+                      <span>¡Todo listo! Tienes suficiente inventario para producir {lotesAProducir} lote(s) ({(productoSeleccionado.unidadesPorLote || 0) * lotesAProducir} unidades).</span>
+                    </div>
+                    <button
+                      onClick={handleConfirmarProduccion}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex-shrink-0"
+                    >
+                      Confirmar y Descontar Stock
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* TABLA PRINCIPAL DE NIVELES DE INVENTARIO */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="font-bold text-slate-900 text-base">Niveles de Stock Actuales</h3>
+              <span className="text-xs text-slate-500 font-medium">Actualizado en tiempo real</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Insumo</th>
+                    <th className="py-3 px-4">Tipo</th>
+                    <th className="py-3 px-4 text-center">Disponible</th>
+                    <th className="py-3 px-4 text-center">Mínimo</th>
+                    <th className="py-3 px-4">Nivel Visual</th>
+                    <th className="py-3 px-4 text-center">Alerta</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {insumos.map(item => {
+                    const pct = Math.min(100, Math.round(((item.stock || 0) / ((item.stockMinimo || 1) * 2)) * 100));
+                    const isLow = item.stock <= item.stockMinimo;
+                    const isZero = item.stock <= 0;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-4 font-semibold text-slate-800">{item.nombre}</td>
+                        <td className="py-3 px-4 text-xs text-slate-500">{item.categoria}</td>
+                        <td className="py-3 px-4 text-center font-bold text-slate-900 font-mono">
+                          {Number(item.stock).toLocaleString()} <span className="text-xs text-slate-400 font-normal">{item.unidad}</span>
+                        </td>
+                        <td className="py-3 px-4 text-center text-slate-500 font-mono text-xs">
+                          {Number(item.stockMinimo).toLocaleString()} {item.unidad}
+                        </td>
+                        <td className="py-3 px-4 w-48">
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                isZero ? "bg-rose-500 w-1" : isLow ? "bg-amber-500" : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {isZero ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700">Agotado</span>
+                          ) : isLow ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">Stock Bajo</span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Normal</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 3. SECCIÓN: RECETAS Y ESTRUCTURA DE COSTOS
+    // ==========================================
+    function RecetasCostosView({ productos, setProductos, insumos, calculateProductCost, showToast, setActiveTab }) {
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editingId, setEditingId] = useState(null);
+
+      // Formulario de Producto/Receta
+      const [nombre, setNombre] = useState("");
+      const [categoria, setCategoria] = useState("Gastronomía");
+      const [unidadesPorLote, setUnidadesPorLote] = useState(1);
+      const [precioVenta, setPrecioVenta] = useState("");
+      const [itemsReceta, setItemsReceta] = useState([]);
+
+      // Simulador de margen
+      const [margenDeseado, setMargenDeseado] = useState(65); // 65% estándar gastro
+
+      const handleOpenModal = (prod = null) => {
+        if (prod) {
+          setEditingId(prod.id);
+          setNombre(prod.nombre);
+          setCategoria(prod.categoria || "Gastronomía");
+          setUnidadesPorLote(prod.unidadesPorLote || 1);
+          setPrecioVenta(prod.precioVenta || "");
+          setItemsReceta(prod.items || []);
+        } else {
+          setEditingId(null);
+          setNombre("");
+          setCategoria("Gastronomía");
+          setUnidadesPorLote(12);
+          setPrecioVenta("");
+          setItemsReceta([]);
+        }
+        setIsModalOpen(true);
+      };
+
+      const handleAddItem = () => {
+        if (insumos.length === 0) {
+          alert("Primero debes registrar insumos en la pestaña de Insumos.");
+          return;
+        }
+        setItemsReceta([...itemsReceta, { insumoId: insumos[0].id, cantidad: 100 }]);
+      };
+
+      const handleRemoveItem = (index) => {
+        setItemsReceta(itemsReceta.filter((_, i) => i !== index));
+      };
+
+      const handleItemChange = (index, field, value) => {
+        const copy = [...itemsReceta];
+        copy[index][field] = field === "cantidad" ? parseFloat(value) || 0 : value;
+        setItemsReceta(copy);
+      };
+
+      // Cálculo en tiempo real dentro del modal
+      const modalCostos = useMemo(() => {
+        let totalLote = 0;
+        let ingCost = 0;
+        let empCost = 0;
+
+        itemsReceta.forEach(item => {
+          const insumo = insumos.find(i => i.id === item.insumoId);
+          if (insumo) {
+            const c = (insumo.costoUnitario || 0) * (item.cantidad || 0);
+            totalLote += c;
+            if (insumo.categoria === "Empaque") empCost += c;
+            else ingCost += c;
+          }
+        });
+
+        const unidades = Math.max(1, unidadesPorLote);
+        const costoUnitario = totalLote / unidades;
+        const precioSugerido = margenDeseado < 100 ? costoUnitario / (1 - (margenDeseado / 100)) : costoUnitario * 2;
+
+        return { totalLote, costoUnitario, ingCost, empCost, precioSugerido };
+      }, [itemsReceta, insumos, unidadesPorLote, margenDeseado]);
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if (!nombre.trim()) {
+          alert("Ingresa un nombre para el producto.");
+          return;
+        }
+        if (itemsReceta.length === 0) {
+          alert("Agrega al menos un insumo o empaque a la receta.");
+          return;
+        }
+
+        const data = {
+          nombre: nombre.trim(),
+          categoria,
+          unidadesPorLote: Math.max(1, parseInt(unidadesPorLote) || 1),
+          precioVenta: parseFloat(precioVenta) || parseFloat(modalCostos.precioSugerido.toFixed(2)),
+          items: itemsReceta,
+        };
+
+        if (editingId) {
+          setProductos(prev => prev.map(p => p.id === editingId ? { ...p, ...data } : p));
+          showToast("Receta actualizada con éxito.");
+        } else {
+          setProductos(prev => [...prev, { id: "prod-" + Date.now(), ...data }]);
+          showToast("Nueva receta creada y costeada.");
+        }
+        setIsModalOpen(false);
+      };
+
+      const handleDelete = (id, nombreProd) => {
+        if (confirm(`¿Eliminar la receta "${nombreProd}"?`)) {
+          setProductos(prev => prev.filter(p => p.id !== id));
+          showToast("Receta eliminada.", "info");
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Recetas & Estructura de Costos</h2>
+              <p className="text-sm text-slate-500 mt-1">Diferencia entre el costo del lote completo y el costo exacto por unidad producida.</p>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-sm transition"
+            >
+              <span className="text-lg">+</span> Crear Nueva Receta
+            </button>
+          </div>
+
+          {/* Grid de Productos / Recetas */}
+          {productos.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+              <div className="text-4xl mb-3">🧾</div>
+              <p className="font-semibold text-slate-700">No hay recetas creadas</p>
+              <p className="text-xs text-slate-500 mt-1">Crea tu primera receta para calcular costos por lote y márgenes de ganancia.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {productos.map(prod => {
+                const metricas = calculateProductCost(prod);
+
+                return (
+                  <div key={prod.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between hover:border-amber-300 transition-all">
+                    <div>
+                      {/* Top Bar de la Tarjeta */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            {prod.categoria}
+                          </span>
+                          <h3 className="text-xl font-bold text-slate-900 mt-1">{prod.nombre}</h3>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenModal(prod)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDelete(prod.id, prod.nombre)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
+                            title="Eliminar"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Diferenciación Clave: Lote vs Unidad */}
+                      <div className="grid grid-cols-2 gap-3 my-4 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase text-slate-500">Costo del Lote</p>
+                          <p className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">{formatMoney(metricas.totalLote)}</p>
+                          <p className="text-[11px] text-slate-500">Rinde: <span className="font-bold text-slate-700">{prod.unidadesPorLote} unidades</span></p>
+                        </div>
+
+                        <div className="border-l border-slate-200 pl-3">
+                          <p className="text-[11px] font-bold uppercase text-slate-500">Costo Unitario Exacto</p>
+                          <p className="text-xl font-extrabold text-amber-600 font-mono mt-0.5">{formatMoney(metricas.costoUnitario)}</p>
+                          <p className="text-[11px] text-slate-500">por cada 1 unidad</p>
+                        </div>
+                      </div>
+
+                      {/* Desglose de Insumos & Empaques */}
+                      <div className="text-xs space-y-1 mb-4">
+                        <p className="font-bold text-slate-700 mb-1.5 flex justify-between">
+                          <span>Composición de la Receta:</span>
+                          <span className="text-slate-400 font-normal">{prod.items?.length || 0} ingredientes / empaques</span>
+                        </p>
+                        <div className="max-h-32 overflow-y-auto pr-1 space-y-1">
+                          {(prod.items || []).map((it, idx) => {
+                            const insumo = insumos.find(i => i.id === it.insumoId);
+                            const costoItem = (insumo?.costoUnitario || 0) * (it.cantidad || 0);
+                            const pct = metricas.totalLote > 0 ? ((costoItem / metricas.totalLote) * 100).toFixed(1) : 0;
+
+                            return (
+                              <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-100 text-slate-600">
+                                <span>{insumo?.nombre || "Insumo eliminado"} ({it.cantidad} {insumo?.unidad})</span>
+                                <span className="font-mono font-medium">{formatMoney(costoItem)} <span className="text-slate-400 text-[10px]">({pct}%)</span></span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Precios y Margen de Utilidad */}
+                    <div className="pt-4 border-t border-slate-200 grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">P. Venta</span>
+                        <span className="text-sm font-extrabold text-slate-900 font-mono">{formatMoney(prod.precioVenta)}</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Ganancia $</span>
+                        <span className="text-sm font-extrabold text-emerald-600 font-mono">+{formatMoney(metricas.gananciaUnitaria)}</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Margen %</span>
+                        <span className="text-sm font-extrabold text-indigo-600 font-mono">{metricas.margenPorcentaje.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* MODAL CONSTRUCTOR DE RECETAS */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {editingId ? "Editar Receta & Costeo" : "Crear Nueva Receta"}
+                  </h3>
+                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                </div>
+
+                <form onSubmit={handleSave} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nombre del Producto</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej: Torta de Chocolate, Box de Cookies..."
+                        value={nombre}
+                        onChange={e => setNombre(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Categoría</label>
+                      <input
+                        type="text"
+                        value={categoria}
+                        onChange={e => setCategoria(e.target.value)}
+                        placeholder="Ej: Postres, Panes"
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Unidades por Lote */}
+                  <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200">
+                    <label className="block text-xs font-bold text-amber-900 uppercase mb-1">
+                      Rendimiento del Lote (Unidades que produce una tanda completa)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={unidadesPorLote}
+                        onChange={e => setUnidadesPorLote(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-32 px-3 py-2 rounded-lg border border-amber-200 text-sm font-bold bg-white"
+                      />
+                      <span className="text-xs text-amber-900">
+                        El costo de todos los insumos de abajo se dividirá entre <strong>{unidadesPorLote}</strong> para darte el costo por unidad.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Constructor de Insumos */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs font-bold text-slate-700 uppercase">Insumos y Materiales de Empaque</label>
+                      <button
+                        type="button"
+                        onClick={handleAddItem}
+                        className="text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200"
+                      >
+                        + Agregar Insumo/Empaque
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {itemsReceta.map((item, index) => {
+                        const targetInsumo = insumos.find(i => i.id === item.insumoId);
+                        const cost = (targetInsumo?.costoUnitario || 0) * (item.cantidad || 0);
+
+                        return (
+                          <div key={index} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                            <select
+                              value={item.insumoId}
+                              onChange={e => handleItemChange(index, "insumoId", e.target.value)}
+                              className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                            >
+                              {insumos.map(ins => (
+                                <option key={ins.id} value={ins.id}>
+                                  {ins.nombre} ({ins.categoria}) - {formatMoney(ins.costoUnitario)}/{ins.unidad}
+                                </option>
+                              ))}
+                            </select>
+
+                            <input
+                              type="number"
+                              step="any"
+                              value={item.cantidad}
+                              onChange={e => handleItemChange(index, "cantidad", e.target.value)}
+                              placeholder="Cant."
+                              className="w-24 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white font-mono"
+                            />
+
+                            <span className="text-xs text-slate-500 w-12">{targetInsumo?.unidad}</span>
+
+                            <span className="text-xs font-bold text-slate-700 w-20 text-right font-mono">
+                              {formatMoney(cost)}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              className="text-slate-400 hover:text-rose-600 p-1 font-bold text-base"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Resumen Financiero en Vivo */}
+                  <div className="bg-slate-900 text-white p-4 rounded-xl space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Costo Lote</span>
+                        <span className="text-lg font-bold font-mono">{formatMoney(modalCostos.totalLote)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-amber-400 uppercase font-bold block">Costo Unitario</span>
+                        <span className="text-lg font-bold font-mono text-amber-400">{formatMoney(modalCostos.costoUnitario)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-emerald-400 uppercase font-bold block">Sugerido ({margenDeseado}%)</span>
+                        <span className="text-lg font-bold font-mono text-emerald-400">{formatMoney(modalCostos.precioSugerido)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Precio Real</span>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder={modalCostos.precioSugerido.toFixed(2)}
+                          value={precioVenta}
+                          onChange={e => setPrecioVenta(e.target.value)}
+                          className="w-24 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs font-bold text-white text-center focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
+                    >
+                      Guardar Receta
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 4. SECCIÓN: REGISTRO DE VENTAS E HISTORIAL
+    // ==========================================
+    function VentasHistorialView({ ventas, setVentas, productos, calculateProductCost, showToast }) {
+      // Formulario rápido
+      const [productoId, setProductoId] = useState("");
+      const [cantidad, setCantidad] = useState(1);
+      const [precioUnitario, setPrecioUnitario] = useState("");
+      const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
+
+      // Filtros
+      const [filtroPeriodo, setFiltroPeriodo] = useState("Todos");
+      const [busqueda, setBusqueda] = useState("");
+
+      // Al cambiar producto, auto-llenar precio
+      useEffect(() => {
+        const prod = productos.find(p => p.id === productoId);
+        if (prod) {
+          setPrecioUnitario(prod.precioVenta || "");
+        }
+      }, [productoId, productos]);
+
+      const handleRegistrarVenta = (e) => {
+        e.preventDefault();
+        const cant = parseInt(cantidad) || 0;
+        const pu = parseFloat(precioUnitario) || 0;
+
+        if (!productoId || cant <= 0 || pu <= 0) {
+          alert("Por favor completa los campos de la venta.");
+          return;
+        }
+
+        const prod = productos.find(p => p.id === productoId);
+        const metricas = prod ? calculateProductCost(prod) : { costoUnitario: 0 };
+
+        const nuevaVenta = {
+          id: "v-" + Date.now(),
+          productoId,
+          cantidad: cant,
+          precioUnitario: pu,
+          costoUnitario: metricas.costoUnitario,
+          fecha: fecha || new Date().toISOString().split("T")[0],
+        };
+
+        setVentas(prev => [nuevaVenta, ...prev]);
+        showToast(`Venta registrada: ${cant}x ${prod?.nombre}`);
+        setCantidad(1);
+      };
+
+      const handleDeleteVenta = (id) => {
+        if (confirm("¿Deseas eliminar este registro de venta?")) {
+          setVentas(prev => prev.filter(v => v.id !== id));
+          showToast("Venta eliminada del historial.", "info");
+        }
+      };
+
+      // Filtrado por fecha
+      const ventasFiltradas = ventas.filter(v => {
+        const prod = productos.find(p => p.id === v.productoId);
+        const matchNombre = prod ? prod.nombre.toLowerCase().includes(busqueda.toLowerCase()) : false;
+
+        if (!matchNombre && busqueda) return false;
+
+        const hoyStr = new Date().toISOString().split("T")[0];
+        if (filtroPeriodo === "Hoy") {
+          return v.fecha === hoyStr;
+        } else if (filtroPeriodo === "Mes") {
+          return v.fecha && v.fecha.slice(0, 7) === hoyStr.slice(0, 7);
+        } else if (filtroPeriodo === "Año") {
+          return v.fecha && v.fecha.slice(0, 4) === hoyStr.slice(0, 4);
+        }
+        return true;
+      });
+
+      // Totales del periodo
+      const totalesPeriodo = useMemo(() => {
+        let totalIngresos = 0;
+        let totalCostos = 0;
+        let unidades = 0;
+
+        ventasFiltradas.forEach(v => {
+          const ing = (v.precioUnitario || 0) * (v.cantidad || 0);
+          const cos = (v.costoUnitario || 0) * (v.cantidad || 0);
+          totalIngresos += ing;
+          totalCostos += cos;
+          unidades += v.cantidad || 0;
+        });
+
+        const ganancia = totalIngresos - totalCostos;
+        const margen = totalIngresos > 0 ? (ganancia / totalIngresos) * 100 : 0;
+
+        return { totalIngresos, totalCostos, ganancia, margen, unidades };
+      }, [ventasFiltradas]);
+
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Registro de Ventas e Historial</h2>
+              <p className="text-sm text-slate-500 mt-1">Ingresa tickets de venta rápidamente y consulta el historial con filtros de fecha.</p>
+            </div>
+          </div>
+
+          {/* FORMULARIO RÁPIDO DE VENTA */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-900 text-sm mb-3">Registrar Nueva Venta (Cero Fricción)</h3>
+            <form onSubmit={handleRegistrarVenta} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <div className="sm:col-span-2">
+                <select
+                  required
+                  value={productoId}
+                  onChange={e => setProductoId(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value="">-- Selecciona Producto --</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre} ({formatMoney(p.precioVenta)})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="Cantidad"
+                  value={cantidad}
+                  onChange={e => setCantidad(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="Precio Unitario"
+                  value={precioUnitario}
+                  onChange={e => setPrecioUnitario(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm transition"
+                >
+                  + Registrar Venta
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* RESUMEN DEL PERIODO FILTRADO */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-slate-400 uppercase">Facturación Total</span>
+              <p className="text-xl font-extrabold text-slate-900 font-mono mt-1">{formatMoney(totalesPeriodo.totalIngresos)}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-slate-400 uppercase">Costo Insumos</span>
+              <p className="text-xl font-extrabold text-slate-600 font-mono mt-1">{formatMoney(totalesPeriodo.totalCostos)}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-emerald-600 uppercase">Ganancia Neta</span>
+              <p className="text-xl font-extrabold text-emerald-600 font-mono mt-1">{formatMoney(totalesPeriodo.ganancia)}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-indigo-600 uppercase">Margen Real</span>
+              <p className="text-xl font-extrabold text-indigo-600 font-mono mt-1">{totalesPeriodo.margen.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {/* FILTROS Y TABLA DE HISTORIAL */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div className="flex items-center gap-2">
+                {["Todos", "Hoy", "Mes", "Año"].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setFiltroPeriodo(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      filtroPeriodo === p ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {p === "Todos" ? "Todo el Historial" : p}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                placeholder="Filtrar por producto..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs w-full sm:w-60 focus:outline-none"
+              />
+            </div>
+
+            {ventasFiltradas.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">
+                <div className="text-3xl mb-2">💰</div>
+                <p className="font-semibold text-slate-700">No hay ventas en este período</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Fecha</th>
+                      <th className="py-3 px-4">Producto</th>
+                      <th className="py-3 px-4 text-center">Cant.</th>
+                      <th className="py-3 px-4 text-right">Precio Venta</th>
+                      <th className="py-3 px-4 text-right">Total Facturado</th>
+                      <th className="py-3 px-4 text-right">Ganancia Neta</th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ventasFiltradas.map(v => {
+                      const prod = productos.find(p => p.id === v.productoId);
+                      const totalVenta = (v.precioUnitario || 0) * (v.cantidad || 0);
+                      const totalCosto = (v.costoUnitario || 0) * (v.cantidad || 0);
+                      const ganancia = totalVenta - totalCosto;
+
+                      return (
+                        <tr key={v.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-4 text-xs text-slate-500 font-mono">{v.fecha}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{prod?.nombre || "Producto eliminado"}</td>
+                          <td className="py-3 px-4 text-center font-bold text-slate-700">{v.cantidad}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">{formatMoney(v.precioUnitario)}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{formatMoney(totalVenta)}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">+{formatMoney(ganancia)}</td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => handleDeleteVenta(v.id)}
+                              className="text-slate-400 hover:text-rose-600 text-xs font-semibold"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 5. SECCIÓN: DASHBOARD & ANALÍTICA SAAS
+    // ==========================================
+    function DashboardView({ insumos, productos, ventas, producciones, calculateProductCost, setActiveTab }) {
+      const [timeRange, setTimeRange] = useState("mes"); // dia, mes, anio, todo
+      const chartRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      // Métricas Principales
+      const metrics = useMemo(() => {
+        const hoyStr = new Date().toISOString().split("T")[0];
+        const mesStr = hoyStr.slice(0, 7);
+        const anioStr = hoyStr.slice(0, 4);
+
+        const ventasFiltradas = ventas.filter(v => {
+          if (timeRange === "dia") return v.fecha === hoyStr;
+          if (timeRange === "mes") return v.fecha && v.fecha.slice(0, 7) === mesStr;
+          if (timeRange === "anio") return v.fecha && v.fecha.slice(0, 4) === anioStr;
+          return true;
+        });
+
+        let ingresosBrutos = 0;
+        let cogs = 0;
+        let unidadesVendidas = 0;
+
+        ventasFiltradas.forEach(v => {
+          const subtotal = (v.precioUnitario || 0) * (v.cantidad || 0);
+          const costo = (v.costoUnitario || 0) * (v.cantidad || 0);
+          ingresosBrutos += subtotal;
+          cogs += costo;
+          unidadesVendidas += v.cantidad || 0;
+        });
+
+        const gananciaNeta = ingresosBrutos - cogs;
+        const margenPorcentaje = ingresosBrutos > 0 ? (gananciaNeta / ingresosBrutos) * 100 : 0;
+
+        // Análisis por producto (Rentabilidad y Más Vendidos)
+        const porProducto = {};
+        ventas.forEach(v => {
+          if (!porProducto[v.productoId]) {
+            porProducto[v.productoId] = { unidades: 0, facturado: 0, costoTotal: 0 };
+          }
+          porProducto[v.productoId].unidades += v.cantidad || 0;
+          porProducto[v.productoId].facturado += (v.precioUnitario || 0) * (v.cantidad || 0);
+          porProducto[v.productoId].costoTotal += (v.costoUnitario || 0) * (v.cantidad || 0);
+        });
+
+        const rankingList = productos.map(prod => {
+          const stats = porProducto[prod.id] || { unidades: 0, facturado: 0, costoTotal: 0 };
+          const c = calculateProductCost(prod);
+          const gananciaTotal = stats.facturado - stats.costoTotal;
+
+          return {
+            id: prod.id,
+            nombre: prod.nombre,
+            unidadesVendidas: stats.unidades,
+            facturado: stats.facturado,
+            gananciaTotal,
+            margenPorcentaje: c.margenPorcentaje,
+            gananciaUnitaria: c.gananciaUnitaria,
+            costoUnitario: c.costoUnitario,
+            precioVenta: prod.precioVenta,
+          };
+        });
+
+        // Top más rentable en $ y %
+        const topRentableDinero = [...rankingList].sort((a, b) => b.gananciaUnitaria - a.gananciaUnitaria)[0];
+        const topRentableMargen = [...rankingList].sort((a, b) => b.margenPorcentaje - a.margenPorcentaje)[0];
+        const topMasVendido = [...rankingList].sort((a, b) => b.unidadesVendidas - a.unidadesVendidas)[0];
+
+        return {
+          ingresosBrutos,
+          cogs,
+          gananciaNeta,
+          margenPorcentaje,
+          unidadesVendidas,
+          rankingList,
+          topRentableDinero,
+          topRentableMargen,
+          topMasVendido,
+          ventasFiltradas
+        };
+      }, [ventas, productos, timeRange]);
+
+      // Renderizar Gráfico de Chart.js
+      useEffect(() => {
+        if (!chartRef.current) return;
+
+        // Agrupar ventas por fecha
+        const ventasPorFecha = {};
+        const fechasOrdenadas = [...ventas]
+          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+          .slice(-14); // últimos 14 registros
+
+        fechasOrdenadas.forEach(v => {
+          const f = v.fecha || "Sin fecha";
+          if (!ventasPorFecha[f]) {
+            ventasPorFecha[f] = { ingresos: 0, ganancias: 0 };
+          }
+          const subtotal = (v.precioUnitario || 0) * (v.cantidad || 0);
+          const costo = (v.costoUnitario || 0) * (v.cantidad || 0);
+          ventasPorFecha[f].ingresos += subtotal;
+          ventasPorFecha[f].ganancias += (subtotal - costo);
+        });
+
+        const labels = Object.keys(ventasPorFecha);
+        const dataIngresos = labels.map(l => ventasPorFecha[l].ingresos);
+        const dataGanancias = labels.map(l => ventasPorFecha[l].ganancias);
+
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext("2d");
+        chartInstanceRef.current = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels.length ? labels : ["Sin datos"],
+            datasets: [
+              {
+                label: "Ventas Brutas ($)",
+                data: dataIngresos.length ? dataIngresos : [0],
+                backgroundColor: "rgba(217, 119, 6, 0.8)",
+                borderRadius: 6,
+              },
+              {
+                label: "Ganancia Neta ($)",
+                data: dataGanancias.length ? dataGanancias : [0],
+                backgroundColor: "rgba(34, 197, 94, 0.85)",
+                borderRadius: 6,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "top" }
+            },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+
+        return () => {
+          if (chartInstanceRef.current) {
+            chartInstanceRef.current.destroy();
+          }
+        };
+      }, [ventas, timeRange]);
+
+      return (
+        <div className="space-y-8">
+          {/* Top Banner de Bienvenida y Selector Temporal */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Panel de Control & Finanzas</h2>
+              <p className="text-sm text-slate-500 mt-1">Visión consolidada de tus ingresos, costos de producción y rentabilidad.</p>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              {[
+                { id: "dia", label: "Hoy" },
+                { id: "mes", label: "Este Mes" },
+                { id: "anio", label: "Este Año" },
+                { id: "todo", label: "Histórico" },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTimeRange(t.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    timeRange === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* KPI CARDS SAAS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold uppercase text-slate-500">Ingresos Brutos</span>
+              <p className="text-2xl font-extrabold text-slate-900 font-mono mt-1">{formatMoney(metrics.ingresosBrutos)}</p>
+              <span className="text-[11px] text-slate-400">Total facturado en el periodo</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold uppercase text-slate-500">Costo de Insumos (COGS)</span>
+              <p className="text-2xl font-extrabold text-slate-700 font-mono mt-1">{formatMoney(metrics.cogs)}</p>
+              <span className="text-[11px] text-slate-400">Materias primas y empaque</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50/50 to-white">
+              <span className="text-xs font-bold uppercase text-emerald-700">Utilidad Neta Real</span>
+              <p className="text-2xl font-extrabold text-emerald-600 font-mono mt-1">{formatMoney(metrics.gananciaNeta)}</p>
+              <span className="text-[11px] text-emerald-600/80 font-medium">Margen promedio: {metrics.margenPorcentaje.toFixed(1)}%</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold uppercase text-amber-700">Volumen de Producción</span>
+              <p className="text-2xl font-extrabold text-amber-600 font-mono mt-1">{metrics.unidadesVendidas} <span className="text-sm font-normal text-slate-500">unid.</span></p>
+              <span className="text-[11px] text-slate-400">Vendidas en este rango</span>
+            </div>
+          </div>
+
+          {/* GRÁFICO HISTÓRICO DE VENTAS VS GANANCIAS */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-900 text-base mb-1">Evolución de Ventas vs. Ganancia Neta</h3>
+            <p className="text-xs text-slate-500 mb-4">Compara el dinero ingresado con el beneficio neto real obtenido.</p>
+            <div className="h-64 w-full">
+              <canvas ref={chartRef}></canvas>
+            </div>
+          </div>
+
+          {/* ANÁLISIS DE RENTABILIDAD & MÁS VENDIDO */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Tarjeta Producto Mayor Margen $ */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                👑 Mayor Utilidad por Unidad ($)
+              </span>
+              <h4 className="font-bold text-slate-900 text-lg mt-3">
+                {metrics.topRentableDinero?.nombre || "Sin datos"}
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">Es el producto que deja más dinero en caja por cada unidad vendida.</p>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center font-mono">
+                <span className="text-xs text-slate-500">Ganancia:</span>
+                <span className="text-base font-extrabold text-emerald-600">
+                  +{formatMoney(metrics.topRentableDinero?.gananciaUnitaria)}
+                </span>
+              </div>
+            </div>
+
+            {/* Tarjeta Producto Mayor Margen % */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                ⭐ Mayor Margen Porcentual (%)
+              </span>
+              <h4 className="font-bold text-slate-900 text-lg mt-3">
+                {metrics.topRentableMargen?.nombre || "Sin datos"}
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">El producto más eficiente en relación costo-precio.</p>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center font-mono">
+                <span className="text-xs text-slate-500">Margen:</span>
+                <span className="text-base font-extrabold text-indigo-600">
+                  {metrics.topRentableMargen?.margenPorcentaje.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Tarjeta Producto Más Vendido */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                🔥 Mayor Aceptación (Top Ventas)
+              </span>
+              <h4 className="font-bold text-slate-900 text-lg mt-3">
+                {metrics.topMasVendido?.nombre || "Sin datos"}
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">El producto preferido por tus clientes en volumen.</p>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center font-mono">
+                <span className="text-xs text-slate-500">Unidades vendidas:</span>
+                <span className="text-base font-extrabold text-amber-600">
+                  {metrics.topMasVendido?.unidadesVendidas || 0} unid.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA COMPARATIVA DE RENTABILIDAD TOTAL */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base">Tabla de Rentabilidad y Aceptación por Producto</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Analiza el aporte individual de cada producto a la utilidad del negocio.</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Producto</th>
+                    <th className="py-3 px-4 text-right">Costo Unit.</th>
+                    <th className="py-3 px-4 text-right">P. Venta</th>
+                    <th className="py-3 px-4 text-right">Margen %</th>
+                    <th className="py-3 px-4 text-center">Unid. Vendidas</th>
+                    <th className="py-3 px-4 text-right">Facturación</th>
+                    <th className="py-3 px-4 text-right">Ganancia Acumulada</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {metrics.rankingList.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3 px-4 font-semibold text-slate-800">{item.nombre}</td>
+                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-500">{formatMoney(item.costoUnitario)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatMoney(item.precioVenta)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-indigo-600">{item.margenPorcentaje.toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-center font-bold text-slate-700">{item.unidadesVendidas}</td>
+                      <td className="py-3 px-4 text-right font-mono font-semibold text-slate-900">{formatMoney(item.facturado)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">+{formatMoney(item.gananciaTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Montar Aplicación
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
