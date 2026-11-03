@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GastroFlow - Gestión de Taller Gastronómico & Costeo Profesional (COP)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fdf8f0',
+              100: '#faedd8',
+              500: '#d97706',
+              600: '#b45309',
+              700: '#92400e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18, ReactDOM & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Google Font: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // Helper de conversión de unidades de medida
+    const convertirUnidades = (cantidad, deUnidad, aUnidad) => {
+      const q = parseFloat(cantidad) || 0;
+      if (deUnidad === aUnidad) return q;
+      if (deUnidad === 'kg' && aUnidad === 'g') return q * 1000;
+      if (deUnidad === 'g' && aUnidad === 'kg') return q / 1000;
+      if (deUnidad === 'lb' && aUnidad === 'g') return q * 453.592;
+      if (deUnidad === 'g' && aUnidad === 'lb') return q / 453.592;
+      if (deUnidad === 'L' && aUnidad === 'ml') return q * 1000;
+      if (deUnidad === 'ml' && aUnidad === 'L') return q / 1000;
+      if (deUnidad === 'docena' && aUnidad === 'unidad') return q * 12;
+      if (deUnidad === 'unidad' && aUnidad === 'docena') return q / 12;
+      return q;
+    };
+
+    // Formateador en Pesos Colombianos (COP) sin decimales molestos
+    const formatMoney = (amount) => {
+      return "$" + Math.round(amount || 0).toLocaleString("es-CO");
+    };
+
+    // Para costos unitarios por gramo (ej: $4,5 COP)
+    const formatUnitMoney = (amount) => {
+      const n = Number(amount || 0);
+      if (n < 50) {
+        return "$" + n.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+      }
+      return "$" + Math.round(n).toLocaleString("es-CO");
+    };
+
+    const getTodayStr = () => new Date().toISOString().split('T')[0];
+    const getTomorrowStr = () => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    };
+
+    // --- DATOS DEMO EN PESOS COLOMBIANOS (COP) ---
+    const INITIAL_INSUMOS = [
+      { id: "ins-1", nombre: "Harina de Trigo Especial", categoria: "Materia Prima", unidad: "g", costoUnitario: 4.5, stock: 5000, stockMinimo: 2000 }, // $4.500 el kg
+      { id: "ins-2", nombre: "Mantequilla con Sal 82%", categoria: "Materia Prima", unidad: "g", costoUnitario: 26.0, stock: 900, stockMinimo: 1000 }, // $26.000 el kg (Stock Bajo)
+      { id: "ins-3", nombre: "Queso Crema Tipo Philadelphia", categoria: "Materia Prima", unidad: "g", costoUnitario: 28.0, stock: 1500, stockMinimo: 800 }, // $28.000 el kg
+      { id: "ins-4", nombre: "Huevos AA de Campo", categoria: "Materia Prima", unidad: "unidad", costoUnitario: 700, stock: 30, stockMinimo: 15 },
+      { id: "ins-5", nombre: "Azúcar Glas / Impalpable", categoria: "Materia Prima", unidad: "g", costoUnitario: 6.0, stock: 4000, stockMinimo: 1500 }, // $6.000 el kg
+      { id: "ins-6", nombre: "Frutos Rojos Frescos", categoria: "Materia Prima", unidad: "g", costoUnitario: 22.0, stock: 0, stockMinimo: 600 }, // Agotado
+      { id: "ins-7", nombre: "Caja Pastelería Alta 25x25", categoria: "Empaque", unidad: "unidad", costoUnitario: 3500, stock: 15, stockMinimo: 8 },
+      { id: "ins-8", nombre: "Base Rígida Dorada 25cm", categoria: "Empaque", unidad: "unidad", costoUnitario: 2400, stock: 20, stockMinimo: 10 },
+      { id: "ins-9", nombre: "Cinta de Tela Decorativa", categoria: "Empaque", unidad: "unidad", costoUnitario: 1200, stock: 25, stockMinimo: 10 },
+    ];
+
+    const INITIAL_PRODUCTOS = [
+      {
+        id: "prod-1",
+        nombre: "Cheesecake Clásico de Frutos Rojos (12 Porciones)",
+        categoria: "Tartas & Pasteles",
+        unidadesPorLote: 1,
+        precioVenta: 85000, // $85.000 COP precio actual
+        tiempoPreparacionHoras: 2.5, // 2.5 horas de mano de obra
+        items: [
+          { insumoId: "ins-1", cantidad: 200, unidad: "g" },
+          { insumoId: "ins-2", cantidad: 120, unidad: "g" },
+          { insumoId: "ins-3", cantidad: 750, unidad: "g" },
+          { insumoId: "ins-4", cantidad: 4, unidad: "unidad" },
+          { insumoId: "ins-5", cantidad: 220, unidad: "g" },
+          { insumoId: "ins-6", cantidad: 300, unidad: "g" },
+          { insumoId: "ins-7", cantidad: 1, unidad: "unidad" },
+          { insumoId: "ins-8", cantidad: 1, unidad: "unidad" },
+          { insumoId: "ins-9", cantidad: 1, unidad: "unidad" },
+        ],
+        // Procesos y máquinas eléctricas dinámicas
+        procesosEquipos: [
+          { nombre: "Batidora Planetaria", tiempoMinutos: 25, costoHora: 2500 }, // $1.042
+          { nombre: "Horno a Gas / Convector", tiempoMinutos: 60, costoHora: 4500 }, // $4.500
+          { nombre: "Cámara de Frío / Refrigeración", tiempoMinutos: 180, costoHora: 1500 }, // $4.500
+        ]
+      },
+      {
+        id: "prod-2",
+        nombre: "Pack 12 Cookies Red Velvet con Chispas",
+        categoria: "Galletería",
+        unidadesPorLote: 12,
+        precioVenta: 36000, // $36.000 COP el pack de 12
+        tiempoPreparacionHoras: 1.0,
+        items: [
+          { insumoId: "ins-1", cantidad: 400, unidad: "g" },
+          { insumoId: "ins-2", cantidad: 200, unidad: "g" },
+          { insumoId: "ins-4", cantidad: 2, unidad: "unidad" },
+          { insumoId: "ins-5", cantidad: 200, unidad: "g" },
+          { insumoId: "ins-7", cantidad: 1, unidad: "unidad" },
+        ],
+        procesosEquipos: [
+          { nombre: "Batidora Planetaria", tiempoMinutos: 15, costoHora: 2500 },
+          { nombre: "Horno Eléctrico", tiempoMinutos: 25, costoHora: 4500 },
+        ]
+      }
+    ];
+
+    const INITIAL_PEDIDOS = [
+      {
+        id: "ped-1",
+        clienteNombre: "Mariana Silva",
+        clienteTelefono: "312 458 9231",
+        fechaEntrega: getTodayStr(),
+        horaEntrega: "16:30",
+        fechaHorneo: getTodayStr(),
+        productoId: "prod-1",
+        cantidad: 1,
+        personalizacion: "Sin nueces, dedicatoria: 'Feliz Cumpleaños Mamá'",
+        precioTotal: 85000,
+        abono: 50000,
+        estadoPago: "abono",
+        estadoProduccion: "preparacion",
+        fechaRegistro: getTodayStr()
+      },
+      {
+        id: "ped-2",
+        clienteNombre: "Carlos Gómez (Oficina)",
+        clienteTelefono: "300 782 1190",
+        fechaEntrega: getTomorrowStr(),
+        horaEntrega: "10:00",
+        fechaHorneo: getTodayStr(),
+        productoId: "prod-2",
+        cantidad: 2,
+        personalizacion: "Cajas individuales decoradas para regalo",
+        precioTotal: 72000,
+        abono: 72000,
+        estadoPago: "pagado",
+        estadoProduccion: "pendiente",
+        fechaRegistro: getTodayStr()
+      }
+    ];
+
+    const INITIAL_HISTORIAL_PRECIOS = [
+      { id: "hp-1", insumoId: "ins-2", insumoNombre: "Mantequilla con Sal 82%", fecha: "2026-10-15", precioAnterior: 22.0, precioNuevo: 26.0, variacionPct: 18.2 },
+      { id: "hp-2", insumoId: "ins-3", insumoNombre: "Queso Crema Tipo Philadelphia", fecha: "2026-10-20", precioAnterior: 24.0, precioNuevo: 28.0, variacionPct: 16.6 }
+    ];
+
+    const INITIAL_MERMAS = [
+      { id: "m-1", insumoId: "ins-4", insumoNombre: "Huevos AA de Campo", cantidad: 4, unidad: "unidad", costoPerdida: 2800, motivo: "Accidente / Rotura", nota: "Se cayó la cubeta al abrir la nevera", fecha: "2026-10-25" }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState("dashboard");
+
+      const [insumos, setInsumos] = useState(() => {
+        const s = localStorage.getItem("gf_cop_insumos");
+        return s ? JSON.parse(s) : INITIAL_INSUMOS;
+      });
+
+      const [productos, setProductos] = useState(() => {
+        const s = localStorage.getItem("gf_cop_productos");
+        return s ? JSON.parse(s) : INITIAL_PRODUCTOS;
+      });
+
+      const [pedidos, setPedidos] = useState(() => {
+        const s = localStorage.getItem("gf_cop_pedidos");
+        return s ? JSON.parse(s) : INITIAL_PEDIDOS;
+      });
+
+      const [historialPrecios, setHistorialPrecios] = useState(() => {
+        const s = localStorage.getItem("gf_cop_hist_precios");
+        return s ? JSON.parse(s) : INITIAL_HISTORIAL_PRECIOS;
+      });
+
+      const [mermas, setMermas] = useState(() => {
+        const s = localStorage.getItem("gf_cop_mermas");
+        return s ? JSON.parse(s) : INITIAL_MERMAS;
+      });
+
+      const [ventas, setVentas] = useState(() => {
+        const s = localStorage.getItem("gf_cop_ventas");
+        return s ? JSON.parse(s) : [];
+      });
+
+      const [producciones, setProducciones] = useState(() => {
+        const s = localStorage.getItem("gf_cop_producciones");
+        return s ? JSON.parse(s) : [];
+      });
+
+      const [toast, setToast] = useState(null);
+      const showToast = (message, type = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      useEffect(() => { localStorage.setItem("gf_cop_insumos", JSON.stringify(insumos)); }, [insumos]);
+      useEffect(() => { localStorage.setItem("gf_cop_productos", JSON.stringify(productos)); }, [productos]);
+      useEffect(() => { localStorage.setItem("gf_cop_pedidos", JSON.stringify(pedidos)); }, [pedidos]);
+      useEffect(() => { localStorage.setItem("gf_cop_hist_precios", JSON.stringify(historialPrecios)); }, [historialPrecios]);
+      useEffect(() => { localStorage.setItem("gf_cop_mermas", JSON.stringify(mermas)); }, [mermas]);
+      useEffect(() => { localStorage.setItem("gf_cop_ventas", JSON.stringify(ventas)); }, [ventas]);
+      useEffect(() => { localStorage.setItem("gf_cop_producciones", JSON.stringify(producciones)); }, [producciones]);
+
+      // CÁLCULO DE COSTEO REAL, PORCENTAJES Y MÁQUINAS
+      const calcularCosteoProducto = (prod) => {
+        let costoIngredientes = 0;
+        let costoEmpaques = 0;
+        let pesoTotalGramos = 0;
+
+        // 1. Desglose detallado de insumos con porcentajes
+        const itemsDetallados = (prod.items || []).map(it => {
+          const insumo = insumos.find(i => i.id === it.insumoId);
+          const cantBase = convertirUnidades(it.cantidad, it.unidad || insumo?.unidad, insumo?.unidad || "g");
+          const costoItem = (insumo?.costoUnitario || 0) * cantBase;
+
+          if (insumo?.categoria === "Empaque") {
+            costoEmpaques += costoItem;
+          } else {
+            costoIngredientes += costoItem;
+            // Sumar peso si la unidad es gramos o kilos
+            if ((it.unidad || insumo?.unidad) === "g") pesoTotalGramos += it.cantidad;
+            if ((it.unidad || insumo?.unidad) === "kg") pesoTotalGramos += it.cantidad * 1000;
+          }
+
+          return {
+            ...it,
+            nombre: insumo?.nombre || "Insumo eliminado",
+            categoria: insumo?.categoria || "Materia Prima",
+            costoItem,
+            unidadBase: insumo?.unidad || ""
+          };
+        });
+
+        // 2. Costo de máquinas y procesos eléctricos (batido, horno, frío...)
+        let costoProcesosEquipos = 0;
+        const procesosDetallados = (prod.procesosEquipos || []).map(proc => {
+          const horas = (proc.tiempoMinutos || 0) / 60;
+          const costoProc = horas * (proc.costoHora || 0);
+          costoProcesosEquipos += costoProc;
+          return { ...proc, costoProc };
+        });
+
+        // 3. Costo Directo Total del Lote
+        const costoDirectoLote = costoIngredientes + costoEmpaques + costoProcesosEquipos;
+        const unidades = prod.unidadesPorLote > 0 ? prod.unidadesPorLote : 1;
+        const costoDirectoUnitario = costoDirectoLote / unidades;
+
+        // 4. Ganancia y Sueldo por Hora
+        const precioVenta = prod.precioVenta || 0;
+        const gananciaLote = precioVenta - costoDirectoLote;
+        const gananciaUnitaria = precioVenta / unidades - costoDirectoUnitario;
+        const margenPorcentaje = precioVenta > 0 ? (gananciaLote / precioVenta) * 100 : 0;
+
+        const horasTrabajo = Math.max(0.1, prod.tiempoPreparacionHoras || 1);
+        const gananciaPorHora = gananciaLote / horasTrabajo;
+
+        // 5. Inyectar porcentajes a cada insumo
+        const itemsConPorcentajes = itemsDetallados.map(it => {
+          const pctCosto = costoDirectoLote > 0 ? (it.costoItem / costoDirectoLote) * 100 : 0;
+          let pctPeso = 0;
+          if (it.categoria !== "Empaque" && pesoTotalGramos > 0) {
+            const pesoEnGramos = it.unidad === "kg" ? it.cantidad * 1000 : it.unidad === "g" ? it.cantidad : 0;
+            pctPeso = (pesoEnGramos / pesoTotalGramos) * 100;
+          }
+          return { ...it, pctCosto, pctPeso };
+        });
+
+        return {
+          costoIngredientes,
+          costoEmpaques,
+          costoProcesosEquipos,
+          procesosDetallados,
+          costoDirectoLote,
+          costoDirectoUnitario,
+          gananciaLote,
+          gananciaUnitaria,
+          margenPorcentaje,
+          gananciaPorHora,
+          horasTrabajo,
+          pesoTotalGramos,
+          itemsConPorcentajes
+        };
+      };
+
+      // Alertas
+      const alertas = useMemo(() => {
+        const hoy = getTodayStr();
+        const manana = getTomorrowStr();
+
+        const entregasHoy = pedidos.filter(p => p.fechaEntrega === hoy && p.estadoProduccion !== "entregado");
+        const entregasManana = pedidos.filter(p => p.fechaEntrega === manana && p.estadoProduccion !== "entregado");
+        const horneoHoy = pedidos.filter(p => p.fechaHorneo === hoy && p.estadoProduccion === "pendiente");
+        const stockCritico = insumos.filter(i => (i.stock || 0) <= (i.stockMinimo || 0));
+
+        const totalAlertas = entregasHoy.length + entregasManana.length + horneoHoy.length + stockCritico.length;
+        return { entregasHoy, entregasManana, horneoHoy, stockCritico, totalAlertas };
+      }, [pedidos, insumos]);
+
+      const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+
+      const resetToVirgin = () => {
+        if (confirm("¿Deseas vaciar todos los datos y dejar el sistema en modo virgen?")) {
+          setInsumos([]); setProductos([]); setPedidos([]); setHistorialPrecios([]); setMermas([]); setVentas([]); setProducciones([]);
+          showToast("Sistema en blanco listo para tus datos.", "info");
+        }
+      };
+
+      const loadDemo = () => {
+        if (confirm("¿Cargar datos de ejemplo en Pesos Colombianos (COP)?")) {
+          setInsumos(INITIAL_INSUMOS); setProductos(INITIAL_PRODUCTOS); setPedidos(INITIAL_PEDIDOS);
+          setHistorialPrecios(INITIAL_HISTORIAL_PRECIOS); setMermas(INITIAL_MERMAS); setVentas([]); setProducciones([]);
+          showToast("Datos de demostración cargados.");
+        }
+      };
+
+      const exportBackup = () => {
+        const data = { insumos, productos, pedidos, historialPrecios, mermas, ventas, producciones, exportDate: new Date() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `GastroFlow_COP_Backup_${getTodayStr()}.json`;
+        a.click();
+        showToast("Copia de seguridad exportada.");
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          {toast && (
+            <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white font-medium text-sm transition-all transform animate-bounce ${
+              toast.type === "error" ? "bg-rose-600" : toast.type === "info" ? "bg-slate-800" : "bg-emerald-600"
+            }`}>
+              <span>{toast.message}</span>
+            </div>
+          )}
+
+          {/* NAVBAR */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center h-16">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20 font-bold text-xl">
+                    🎂
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-slate-900 tracking-tight text-lg">Gastro<span className="text-amber-600">Flow</span></span>
+                    <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full">COP 🇨🇴</span>
+                  </div>
+                </div>
+
+                <nav className="hidden lg:flex space-x-1">
+                  {[
+                    { id: "dashboard", label: "Dashboard", icon: "📊" },
+                    { id: "pedidos", label: "Libreta de Encargos", icon: "📅", badge: alertas.entregasHoy.length > 0 ? alertas.entregasHoy.length : null },
+                    { id: "inventario", label: "Inventario & Balanza", icon: "⚡", badge: alertas.stockCritico.length > 0 ? alertas.stockCritico.length : null },
+                    { id: "recetas", label: "Recetas & Máquinas", icon: "🧾" },
+                    { id: "insumos", label: "Insumos & Costos", icon: "📦" },
+                    { id: "historial", label: "Auditoría & Historial", icon: "📂" },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === tab.id
+                          ? "bg-amber-50 text-amber-900 shadow-sm border border-amber-200/70"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      {tab.badge && (
+                        <span className="ml-1 px-1.5 py-0.2 text-[10px] font-bold bg-rose-500 text-white rounded-full">
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowNotificationMenu(!showNotificationMenu)}
+                      className="p-2 relative rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600"
+                      title="Alertas del Día"
+                    >
+                      <span className="text-lg">🔔</span>
+                      {alertas.totalAlertas > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                          {alertas.totalAlertas}
+                        </span>
+                      )}
+                    </button>
+
+                    {showNotificationMenu && (
+                      <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-50">
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-100 mb-3">
+                          <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">🔔 Agenda y Alertas</h4>
+                          <button onClick={() => setShowNotificationMenu(false)} className="text-slate-400 font-bold">&times;</button>
+                        </div>
+                        <div className="space-y-2 max-h-80 overflow-y-auto text-xs">
+                          {alertas.totalAlertas === 0 ? (
+                            <p className="text-center py-4 text-slate-400">Sin alertas pendientes para hoy.</p>
+                          ) : (
+                            <>
+                              {alertas.entregasHoy.map(p => (
+                                <div key={p.id} className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex justify-between items-center">
+                                  <div>
+                                    <p className="font-bold">🚨 Entrega HOY ({p.horaEntrega})</p>
+                                    <p className="text-[11px] text-rose-700">{p.clienteNombre}</p>
+                                  </div>
+                                  <button onClick={() => { setActiveTab("pedidos"); setShowNotificationMenu(false); }} className="px-2 py-1 bg-rose-600 text-white rounded-lg text-[10px] font-bold">Ver</button>
+                                </div>
+                              ))}
+                              {alertas.stockCritico.map(i => (
+                                <div key={i.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 flex justify-between items-center">
+                                  <div>
+                                    <p className="font-bold text-rose-600">⚠️ Stock Crítico: {i.nombre}</p>
+                                    <p className="text-[11px] text-slate-500">Quedan solo {i.stock} {i.unidad}</p>
+                                  </div>
+                                  <button onClick={() => { setActiveTab("inventario"); setShowNotificationMenu(false); }} className="px-2 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-bold">Comprar</button>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative group">
+                    <button className="px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-1.5">
+                      ⚙️ <span className="hidden sm:inline">Datos</span>
+                    </button>
+                    <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 hidden group-hover:block z-50">
+                      <button onClick={exportBackup} className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg">💾 Exportar Respaldo</button>
+                      <button onClick={loadDemo} className="w-full text-left px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg">🔄 Recargar Demo (COP)</button>
+                      <hr className="my-1 border-slate-100" />
+                      <button onClick={resetToVirgin} className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg">🗑️ Limpiar Todo</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* MAIN */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {activeTab === "dashboard" && (
+              <DashboardView
+                insumos={insumos}
+                productos={productos}
+                pedidos={pedidos}
+                ventas={ventas}
+                mermas={mermas}
+                alertas={alertas}
+                calcularCosteoProducto={calcularCosteoProducto}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === "pedidos" && (
+              <PedidosView
+                pedidos={pedidos}
+                setPedidos={setPedidos}
+                productos={productos}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "inventario" && (
+              <InventarioBalanzaView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                productos={productos}
+                setHistorialPrecios={setHistorialPrecios}
+                mermas={mermas}
+                setMermas={setMermas}
+                producciones={producciones}
+                setProducciones={setProducciones}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "recetas" && (
+              <RecetasMaquinasView
+                productos={productos}
+                setProductos={setProductos}
+                insumos={insumos}
+                calcularCosteoProducto={calcularCosteoProducto}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "insumos" && (
+              <InsumosCostosView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                historialPrecios={historialPrecios}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === "historial" && (
+              <HistorialAuditoriaView
+                pedidos={pedidos}
+                historialPrecios={historialPrecios}
+                mermas={mermas}
+              />
+            )}
+          </main>
+
+          <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+            GastroFlow &bull; Sistema para Repostería, Panadería & Obradores por Encargo &bull; Moneda: COP ($)
+          </footer>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // SECCIÓN RECETAS & MÁQUINAS (CON PORCENTAJES Y EQUIPOS DINÁMICOS)
+    // ==========================================
+    function RecetasMaquinasView({ productos, setProductos, insumos, calcularCosteoProducto, showToast }) {
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editingId, setEditingId] = useState(null);
+
+      // Formulario
+      const [nombre, setNombre] = useState("");
+      const [categoria, setCategoria] = useState("Tartas & Pasteles");
+      const [unidadesPorLote, setUnidadesPorLote] = useState(1);
+      const [precioVenta, setPrecioVenta] = useState("");
+      const [tiempoPreparacionHoras, setTiempoPreparacionHoras] = useState(2.5);
+      const [itemsReceta, setItemsReceta] = useState([]);
+      const [procesosEquipos, setProcesosEquipos] = useState([]);
+
+      const handleOpenModal = (prod = null) => {
+        if (prod) {
+          setEditingId(prod.id);
+          setNombre(prod.nombre);
+          setCategoria(prod.categoria);
+          setUnidadesPorLote(prod.unidadesPorLote || 1);
+          setPrecioVenta(prod.precioVenta || "");
+          setTiempoPreparacionHoras(prod.tiempoPreparacionHoras || 1.0);
+          setItemsReceta(prod.items || []);
+          setProcesosEquipos(prod.procesosEquipos || []);
+        } else {
+          setEditingId(null);
+          setNombre("");
+          setCategoria("Tartas & Pasteles");
+          setUnidadesPorLote(1);
+          setPrecioVenta("");
+          setTiempoPreparacionHoras(2.0);
+          setItemsReceta([]);
+          setProcesosEquipos([
+            { nombre: "Batidora Planetaria", tiempoMinutos: 20, costoHora: 2500 },
+            { nombre: "Horno Convector / Gas", tiempoMinutos: 45, costoHora: 4500 }
+          ]);
+        }
+        setIsModalOpen(true);
+      };
+
+      const handleAddItem = () => {
+        if (insumos.length === 0) return alert("Registra insumos primero.");
+        setItemsReceta([...itemsReceta, { insumoId: insumos[0].id, cantidad: 100, unidad: insumos[0].unidad }]);
+      };
+
+      const handleAddProceso = () => {
+        setProcesosEquipos([...procesosEquipos, { nombre: "Refrigeración / Frío", tiempoMinutos: 60, costoHora: 1500 }]);
+      };
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        const data = {
+          nombre: nombre.trim(),
+          categoria,
+          unidadesPorLote: Math.max(1, parseInt(unidadesPorLote) || 1),
+          precioVenta: parseFloat(precioVenta) || 0,
+          tiempoPreparacionHoras: parseFloat(tiempoPreparacionHoras) || 0.1,
+          items: itemsReceta,
+          procesosEquipos: procesosEquipos
+        };
+
+        if (editingId) {
+          setProductos(prev => prev.map(p => p.id === editingId ? { ...p, ...data } : p));
+          showToast("Receta actualizada con éxito.");
+        } else {
+          setProductos(prev => [...prev, { id: "prod-" + Date.now(), ...data }]);
+          showToast("Nueva receta costeada con éxito.");
+        }
+        setIsModalOpen(false);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Recetas, Porcentajes & Costeo de Máquinas</h2>
+              <p className="text-sm text-slate-500 mt-1">Conoce el porcentaje y costo de cada ingrediente, más el gasto eléctrico de batidoras, hornos y frío.</p>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow transition"
+            >
+              + Nueva Receta
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {productos.map(prod => {
+              const r = calcularCosteoProducto(prod);
+
+              return (
+                <div key={prod.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:border-amber-300 transition">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                        {prod.categoria} &bull; Rinde: {prod.unidadesPorLote} unidad(es)
+                      </span>
+                      <h3 className="text-xl font-black text-slate-900 mt-1">{prod.nombre}</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Precio Venta Hoy</span>
+                        <span className="text-lg font-black font-mono text-slate-900">{formatMoney(prod.precioVenta)}</span>
+                      </div>
+                      <button onClick={() => handleOpenModal(prod)} className="p-2 text-slate-400 hover:text-amber-600 font-bold">✏️ Editar</button>
+                    </div>
+                  </div>
+
+                  {/* RADIOGRAFÍA: CUÁNTO GANA POR HORA DE SUELDO */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-900 text-white mb-6">
+                    <div>
+                      <span className="text-[10px] text-amber-400 font-black uppercase">Tu Ganancia por Hora</span>
+                      <p className="text-2xl font-black font-mono text-emerald-400">{formatMoney(r.gananciaPorHora)} <span className="text-xs font-normal text-slate-300">/ hr</span></p>
+                      <span className="text-[10px] text-slate-400">{prod.tiempoPreparacionHoras} hrs dedicadas</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Costo Insumos</span>
+                      <p className="text-lg font-bold font-mono">{formatMoney(r.costoIngredientes + r.costoEmpaques)}</p>
+                      <span className="text-[10px] text-slate-400">Ingredientes y cajas</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Costo Máquinas / Frío</span>
+                      <p className="text-lg font-bold font-mono text-cyan-400">{formatMoney(r.costoProcesosEquipos)}</p>
+                      <span className="text-[10px] text-slate-400">Horno, batidora, frío</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Margen Real %</span>
+                      <p className="text-lg font-black font-mono text-amber-400">{r.margenPorcentaje.toFixed(1)}%</p>
+                      <span className="text-[10px] text-slate-400">Ganancia: +{formatMoney(r.gananciaLote)}</span>
+                    </div>
+                  </div>
+
+                  {/* TABLA DETALLADA DE INGREDIENTES CON % Y PRECIO APORTADO */}
+                  <div className="mb-4">
+                    <h4 className="font-bold text-slate-800 text-xs uppercase mb-2 flex items-center justify-between">
+                      <span>🥣 Ingredientes & Empaques (Peso Total Mezcla: {r.pesoTotalGramos} g)</span>
+                      <span className="text-[11px] font-normal text-slate-400">Fórmula y Costo Aportado</span>
+                    </h4>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                          <tr>
+                            <th className="py-2.5 px-3">Insumo</th>
+                            <th className="py-2.5 px-3 text-center">Cantidad</th>
+                            <th className="py-2.5 px-3 text-center">% de la Fórmula (Peso)</th>
+                            <th className="py-2.5 px-3 text-right">Costo Aportado ($)</th>
+                            <th className="py-2.5 px-3 text-center">% del Costo Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono">
+                          {r.itemsConPorcentajes.map((it, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-sans font-bold text-slate-800">
+                                {it.nombre} <span className="text-[10px] font-normal text-slate-400">({it.categoria})</span>
+                              </td>
+                              <td className="py-2 px-3 text-center">{it.cantidad} {it.unidad}</td>
+                              <td className="py-2 px-3 text-center">
+                                {it.categoria === "Empaque" ? (
+                                  <span className="text-slate-400">-</span>
+                                ) : (
+                                  <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{it.pctPeso.toFixed(1)}%</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right font-bold text-slate-900">{formatMoney(it.costoItem)}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className={`px-2 py-0.5 rounded font-black text-[11px] ${it.pctCosto > 30 ? "bg-amber-100 text-amber-800" : "text-slate-600"}`}>
+                                  {it.pctCosto.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* PROCESOS Y MÁQUINAS ELÉCTRICAS USADAS */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs uppercase mb-2">⚡ Procesos, Máquinas Eléctricas & Frío</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {r.procesosDetallados.map((proc, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-slate-800">{proc.nombre}</p>
+                            <p className="text-[10px] text-slate-400">{proc.tiempoMinutos} min &bull; Tarifa {formatMoney(proc.costoHora)}/h</p>
+                          </div>
+                          <span className="font-bold font-mono text-cyan-700">{formatMoney(proc.costoProc)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* MODAL EDITAR / CREAR RECETA */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-base font-bold text-slate-900">{editingId ? "Editar Receta" : "Nueva Receta"}</h3>
+                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 font-bold text-xl">&times;</button>
+                </div>
+
+                <form onSubmit={handleSave} className="space-y-4 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700">Nombre del Producto</label>
+                      <input type="text" required value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Categoría</label>
+                      <input type="text" value={categoria} onChange={e => setCategoria(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                      <label className="font-bold text-slate-700">Rendimiento (Unidades)</label>
+                      <input type="number" min="1" value={unidadesPorLote} onChange={e => setUnidadesPorLote(Math.max(1, parseInt(e.target.value) || 1))} className="w-full px-3 py-1.5 rounded-lg border border-slate-200 font-bold" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Tu Tiempo de Trabajo (Hrs)</label>
+                      <input type="number" step="0.1" value={tiempoPreparacionHoras} onChange={e => setTiempoPreparacionHoras(parseFloat(e.target.value) || 0.1)} className="w-full px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-amber-700" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Precio de Venta ($ COP)</label>
+                      <input type="number" step="any" required value={precioVenta} onChange={e => setPrecioVenta(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-200 font-bold font-mono" />
+                    </div>
+                  </div>
+
+                  {/* Ingredientes */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="font-bold text-slate-700 uppercase">1. Insumos y Empaques</label>
+                      <button type="button" onClick={handleAddItem} className="px-3 py-1 bg-amber-50 text-amber-800 font-bold rounded-lg border border-amber-200">+ Agregar Insumo</button>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {itemsReceta.map((it, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                          <select
+                            value={it.insumoId}
+                            onChange={e => {
+                              const c = [...itemsReceta]; c[idx].insumoId = e.target.value; setItemsReceta(c);
+                            }}
+                            className="flex-1 px-2 py-1 rounded border border-slate-200 text-xs bg-white font-bold"
+                          >
+                            {insumos.map(i => <option key={i.id} value={i.id}>{i.nombre} ({i.categoria})</option>)}
+                          </select>
+                          <input
+                            type="number" step="any" value={it.cantidad}
+                            onChange={e => {
+                              const c = [...itemsReceta]; c[idx].cantidad = parseFloat(e.target.value) || 0; setItemsReceta(c);
+                            }}
+                            className="w-24 px-2 py-1 rounded border border-slate-200 font-mono font-bold"
+                          />
+                          <select
+                            value={it.unidad}
+                            onChange={e => {
+                              const c = [...itemsReceta]; c[idx].unidad = e.target.value; setItemsReceta(c);
+                            }}
+                            className="w-20 px-1 py-1 rounded border border-slate-200 bg-white"
+                          >
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="ml">ml</option>
+                            <option value="L">L</option>
+                            <option value="unidad">unid.</option>
+                          </select>
+                          <button type="button" onClick={() => setItemsReceta(itemsReceta.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-rose-600 font-bold px-1">&times;</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Máquinas y Procesos Dinámicos */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="font-bold text-slate-700 uppercase">2. Máquinas Eléctricas, Horno & Refrigeración</label>
+                      <button type="button" onClick={handleAddProceso} className="px-3 py-1 bg-cyan-50 text-cyan-800 font-bold rounded-lg border border-cyan-200">+ Agregar Proceso/Máquina</button>
+                    </div>
+                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {procesosEquipos.map((proc, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-cyan-50/40 p-2 rounded-xl border border-cyan-100">
+                          <input
+                            type="text" placeholder="Ej: Batidora, Horno, Abatidor..." value={proc.nombre}
+                            onChange={e => {
+                              const c = [...procesosEquipos]; c[idx].nombre = e.target.value; setProcesosEquipos(c);
+                            }}
+                            className="flex-1 px-2 py-1 rounded border border-slate-200 font-bold bg-white"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number" placeholder="Min" value={proc.tiempoMinutos}
+                              onChange={e => {
+                                const c = [...procesosEquipos]; c[idx].tiempoMinutos = parseFloat(e.target.value) || 0; setProcesosEquipos(c);
+                              }}
+                              className="w-16 px-2 py-1 rounded border border-slate-200 font-mono text-center bg-white"
+                            />
+                            <span className="text-[10px] text-slate-500">min</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-500">$</span>
+                            <input
+                              type="number" placeholder="Costo/hr" value={proc.costoHora}
+                              onChange={e => {
+                                const c = [...procesosEquipos]; c[idx].costoHora = parseFloat(e.target.value) || 0; setProcesosEquipos(c);
+                              }}
+                              className="w-20 px-2 py-1 rounded border border-slate-200 font-mono bg-white"
+                            />
+                            <span className="text-[10px] text-slate-500">/hr</span>
+                          </div>
+                          <button type="button" onClick={() => setProcesosEquipos(procesosEquipos.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-rose-600 font-bold px-1">&times;</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" className="px-5 py-2 bg-amber-500 text-white font-bold rounded-xl shadow">Guardar Receta</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // SECCIÓN INVENTARIO & ESCALADOR DE BALANZA (PESAJE POR UNIDADES)
+    // ==========================================
+    function InventarioBalanzaView({ insumos, setInsumos, productos, setHistorialPrecios, mermas, setMermas, producciones, setProducciones, showToast }) {
+      const [busqueda, setBusqueda] = useState("");
+      const [ordenarPor, setOrdenarPor] = useState("criticidad");
+
+      // Producción por Unidades Exactas
+      const [selectedProdId, setSelectedProdId] = useState(productos[0]?.id || "");
+      const [unidadesDeseadas, setUnidadesDeseadas] = useState(1);
+
+      const targetProd = productos.find(p => p.id === selectedProdId);
+
+      // Calculador de Escala exacta para pesar en mesa
+      const escalaMiseEnPlace = useMemo(() => {
+        if (!targetProd || unidadesDeseadas <= 0) return null;
+        const rendimientoBase = targetProd.unidadesPorLote || 1;
+        const factorEscala = unidadesDeseadas / rendimientoBase;
+
+        const listaPesaje = (targetProd.items || []).map(it => {
+          const insumo = insumos.find(i => i.id === it.insumoId);
+          const cantidadEscalada = it.cantidad * factorEscala;
+          const cantidadEnUnidadBase = convertirUnidades(cantidadEscalada, it.unidad || insumo?.unidad, insumo?.unidad || "g");
+          const disponible = insumo ? insumo.stock : 0;
+          const falta = Math.max(0, cantidadEnUnidadBase - disponible);
+          const suficiente = disponible >= cantidadEnUnidadBase;
+
+          return {
+            insumoId: it.insumoId,
+            nombre: insumo?.nombre || "Desconocido",
+            categoria: insumo?.categoria || "Materia Prima",
+            cantidadPesar: cantidadEscalada,
+            unidadPesar: it.unidad || insumo?.unidad,
+            cantidadEnBase: cantidadEnUnidadBase,
+            unidadBase: insumo?.unidad || "",
+            disponible,
+            falta,
+            suficiente
+          };
+        });
+
+        const hayFaltantes = listaPesaje.some(l => !l.suficiente);
+        return { listaPesaje, hayFaltantes, factorEscala };
+      }, [targetProd, unidadesDeseadas, insumos]);
+
+      // Confirmar producción
+      const handleConfirmarProduccion = () => {
+        if (!escalaMiseEnPlace || escalaMiseEnPlace.hayFaltantes) return;
+
+        setInsumos(prev => prev.map(ins => {
+          const it = escalaMiseEnPlace.listaPesaje.find(x => x.insumoId === ins.id);
+          if (it) {
+            return { ...ins, stock: Math.max(0, ins.stock - it.cantidadEnBase) };
+          }
+          return ins;
+        }));
+
+        setProducciones(prev => [{
+          id: "prod-log-" + Date.now(),
+          productoNombre: targetProd.nombre,
+          unidades: unidadesDeseadas,
+          fecha: new Date().toLocaleString()
+        }, ...prev]);
+
+        showToast(`¡Producción confirmada! Se descontaron los insumos del almacén.`);
+      };
+
+      // Modales Rápidos
+      const [modalCompra, setModalCompra] = useState(null);
+      const [cantCompra, setCantCompra] = useState("");
+      const [precioNuevoCompra, setPrecioNuevoCompra] = useState("");
+
+      const [modalMerma, setModalMerma] = useState(null);
+      const [cantMerma, setCantMerma] = useState("");
+      const [motivoMerma, setMotivoMerma] = useState("Accidente / Rotura");
+      const [notaMerma, setNotaMerma] = useState("");
+
+      const handleGuardarCompra = (e) => {
+        e.preventDefault();
+        const q = parseFloat(cantCompra) || 0;
+        const pNuevo = parseFloat(precioNuevoCompra);
+        if (!modalCompra || q <= 0) return;
+
+        setInsumos(prev => prev.map(ins => {
+          if (ins.id === modalCompra.id) {
+            return { ...ins, stock: ins.stock + q, costoUnitario: pNuevo > 0 ? pNuevo : ins.costoUnitario };
+          }
+          return ins;
+        }));
+
+        if (pNuevo > 0 && pNuevo !== modalCompra.costoUnitario) {
+          const varPct = ((pNuevo - modalCompra.costoUnitario) / modalCompra.costoUnitario) * 100;
+          setHistorialPrecios(prev => [{
+            id: "hp-" + Date.now(),
+            insumoId: modalCompra.id,
+            insumoNombre: modalCompra.nombre,
+            fecha: getTodayStr(),
+            precioAnterior: modalCompra.costoUnitario,
+            precioNuevo: pNuevo,
+            variacionPct: varPct
+          }, ...prev]);
+        }
+        showToast(`Compra guardada: +${q} ${modalCompra.unidad} de ${modalCompra.nombre}`);
+        setModalCompra(null);
+      };
+
+      const handleGuardarMerma = (e) => {
+        e.preventDefault();
+        const q = parseFloat(cantMerma) || 0;
+        if (!modalMerma || q <= 0) return;
+
+        setInsumos(prev => prev.map(ins => {
+          if (ins.id === modalMerma.id) return { ...ins, stock: Math.max(0, ins.stock - q) };
+          return ins;
+        }));
+
+        const costoPerdida = q * (modalMerma.costoUnitario || 0);
+        setMermas(prev => [{
+          id: "m-" + Date.now(),
+          insumoId: modalMerma.id,
+          insumoNombre: modalMerma.nombre,
+          cantidad: q,
+          unidad: modalMerma.unidad,
+          costoPerdida,
+          motivo: motivoMerma,
+          nota: notaMerma.trim(),
+          fecha: getTodayStr()
+        }, ...prev]);
+
+        showToast(`Merma registrada: -${formatMoney(costoPerdida)}`, "info");
+        setModalMerma(null);
+      };
+
+      const insumosOrdenados = useMemo(() => {
+        let l = [...insumos].filter(i => i.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+        if (ordenarPor === "criticidad") {
+          return l.sort((a, b) => {
+            const aC = a.stock <= 0 ? 0 : a.stock <= a.stockMinimo ? 1 : 2;
+            const bC = b.stock <= 0 ? 0 : b.stock <= b.stockMinimo ? 1 : 2;
+            return aC - bC;
+          });
+        }
+        if (ordenarPor === "alfa") return l.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        return l;
+      }, [insumos, busqueda, ordenarPor]);
+
+      return (
+        <div className="space-y-8">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Inventario & Balanza de Preparación</h2>
+            <p className="text-sm text-slate-500 mt-1">Indica cuántas unidades vas a preparar y la app te dirá exactamente cuánto pesar en la mesa de trabajo.</p>
+          </div>
+
+          {/* ESCALADOR DIRECTO POR UNIDADES (HOJA DE PESAJE / MISE EN PLACE) */}
+          <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 rounded-2xl border border-amber-200 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">⚖️</span>
+              <div>
+                <h3 className="font-black text-slate-900 text-base">Hoja de Pesaje en Balanza (Mise en Place)</h3>
+                <p className="text-xs text-slate-600">Calcula automáticamente los gramos exactos a mezclar para cualquier número de unidades.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 uppercase">¿Qué vas a preparar?</label>
+                <select
+                  value={selectedProdId}
+                  onChange={e => setSelectedProdId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                >
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre} (Receta base rinde: {p.unidadesPorLote} unid.)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-amber-900 uppercase">¿Cuántas Unidades Vas a Hacer?</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={unidadesDeseadas}
+                  onChange={e => setUnidadesDeseadas(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-300 text-xs font-black text-amber-900 bg-white text-base"
+                />
+              </div>
+            </div>
+
+            {/* TABLA DE PESAJE EXACTO */}
+            {escalaMiseEnPlace && (
+              <div className="space-y-3">
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-900 text-white font-semibold text-xs">
+                      <tr>
+                        <th className="py-2.5 px-3">Ingrediente / Empaque</th>
+                        <th className="py-2.5 px-3 text-center text-amber-300">⚖️ PESAR EN LA MESA</th>
+                        <th className="py-2.5 px-3 text-center">Disponible en Almacén</th>
+                        <th className="py-2.5 px-3 text-center">Disponibilidad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {escalaMiseEnPlace.listaPesaje.map((it, idx) => (
+                        <tr key={idx} className={it.suficiente ? "hover:bg-slate-50" : "bg-rose-50/80"}>
+                          <td className="py-2.5 px-3 font-sans font-bold text-slate-800">{it.nombre}</td>
+                          <td className="py-2.5 px-3 text-center font-black text-sm text-slate-900 bg-amber-50/50">
+                            {Number(it.cantidadPesar.toFixed(1)).toLocaleString()} {it.unidadPesar}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-500">
+                            {it.disponible.toLocaleString()} {it.unidadBase}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold">
+                            {it.suficiente ? (
+                              <span className="text-emerald-700">✓ Completo</span>
+                            ) : (
+                              <span className="text-rose-700">⚠ Faltan {it.falta.toLocaleString()} {it.unidadBase}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {escalaMiseEnPlace.hayFaltantes ? (
+                  <div className="p-3 bg-rose-100 text-rose-900 rounded-xl font-bold text-xs flex justify-between items-center">
+                    <span>🛑 Stock insuficiente. Te faltan insumos para completar {unidadesDeseadas} unidades.</span>
+                    <button disabled className="px-4 py-1.5 bg-rose-300 text-rose-700 rounded-lg cursor-not-allowed">Bloqueado</button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-100 text-emerald-900 rounded-xl font-bold text-xs flex justify-between items-center">
+                    <span>✅ ¡Todo listo para cocinar! Tienes insumos suficientes para {unidadesDeseadas} unidades.</span>
+                    <button onClick={handleConfirmarProduccion} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                      Confirmar y Descontar Insumos
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* TABLA DE EXISTENCIAS */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">Ordenar:</span>
+                <select value={ordenarPor} onChange={e => setOrdenarPor(e.target.value)} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white">
+                  <option value="criticidad">🚨 Criticidad (Agotados Primero)</option>
+                  <option value="alfa">🔤 Alfabético (A - Z)</option>
+                </select>
+              </div>
+              <input type="text" placeholder="Buscar en almacén..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="w-full sm:w-64 px-3 py-1.5 rounded-lg border border-slate-200 text-xs" />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase">
+                  <tr>
+                    <th className="py-3 px-4">Insumo</th>
+                    <th className="py-3 px-4">Tipo</th>
+                    <th className="py-3 px-4 text-center">Disponible</th>
+                    <th className="py-3 px-4 text-center">Mínimo</th>
+                    <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-4 text-center">Acciones Rápidas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {insumosOrdenados.map(item => {
+                    const isZero = item.stock <= 0;
+                    const isLow = item.stock <= item.stockMinimo;
+
+                    return (
+                      <tr key={item.id} className={isZero ? "bg-rose-50/40" : isLow ? "bg-amber-50/30" : "hover:bg-slate-50"}>
+                        <td className="py-3 px-4 font-bold text-slate-800">{item.nombre}</td>
+                        <td className="py-3 px-4 text-xs text-slate-500">{item.categoria}</td>
+                        <td className="py-3 px-4 text-center font-black font-mono text-slate-900">
+                          {Number(item.stock).toLocaleString()} <span className="text-xs text-slate-400 font-normal">{item.unidad}</span>
+                        </td>
+                        <td className="py-3 px-4 text-center text-slate-500 font-mono text-xs">{Number(item.stockMinimo).toLocaleString()} {item.unidad}</td>
+                        <td className="py-3 px-4 text-center">
+                          {isZero ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">Agotado</span>
+                          ) : isLow ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">Stock Bajo</span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">Óptimo</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => { setModalCompra(item); setCantCompra(""); setPrecioNuevoCompra(item.costoUnitario); }}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black text-xs rounded-lg border border-emerald-200"
+                            >
+                              + Compra
+                            </button>
+                            <button
+                              onClick={() => { setModalMerma(item); setCantMerma(""); setNotaMerma(""); }}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-black text-xs rounded-lg border border-rose-200"
+                            >
+                              - Merma
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* MODALES COMPRA / MERMA */}
+          {modalCompra && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-1">Registrar Compra / Reposición</h3>
+                <p className="text-xs text-slate-500 mb-4">{modalCompra.nombre} ({modalCompra.unidad})</p>
+                <form onSubmit={handleGuardarCompra} className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700">Cantidad Comprada ({modalCompra.unidad})</label>
+                    <input type="number" step="any" required value={cantCompra} onChange={e => setCantCompra(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700">Nuevo Costo ($ COP por {modalCompra.unidad})</label>
+                    <input type="number" step="any" value={precioNuevoCompra} onChange={e => setPrecioNuevoCompra(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold" />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setModalCompra(null)} className="px-3 py-1.5 rounded-lg text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" className="px-4 py-1.5 bg-emerald-600 text-white font-bold rounded-lg shadow">Guardar Compra</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {modalMerma && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200">
+                <h3 className="text-base font-bold text-rose-600 mb-1">Registrar Merma / Pérdida</h3>
+                <p className="text-xs text-slate-500 mb-4">{modalMerma.nombre} ({modalMerma.unidad})</p>
+                <form onSubmit={handleGuardarMerma} className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700">Cantidad Perdida ({modalMerma.unidad})</label>
+                    <input type="number" step="any" required value={cantMerma} onChange={e => setCantMerma(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700">Motivo</label>
+                    <select value={motivoMerma} onChange={e => setMotivoMerma(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                      <option value="Accidente / Rotura">Accidente / Rotura</option>
+                      <option value="Caducidad / Descomposición">Caducidad / Descomposición</option>
+                      <option value="Desperdicio en Preparación">Desperdicio en Preparación</option>
+                      <option value="Ajuste de Conteo Físico">Ajuste de Conteo Físico</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700">Nota</label>
+                    <input type="text" placeholder="Ej: Se cortó la crema, venció..." value={notaMerma} onChange={e => setNotaMerma(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setModalMerma(null)} className="px-3 py-1.5 rounded-lg text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" className="px-4 py-1.5 bg-rose-600 text-white font-bold rounded-lg shadow">Descontar Pérdida</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // SECCIÓN INSUMOS & COSTOS
+    // ==========================================
+    function InsumosCostosView({ insumos, setInsumos, historialPrecios, showToast }) {
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [nombre, setNombre] = useState("");
+      const [categoria, setCategoria] = useState("Materia Prima");
+      const [unidad, setUnidad] = useState("g");
+      const [costoUnitario, setCostoUnitario] = useState("");
+      const [stock, setStock] = useState("");
+      const [stockMinimo, setStockMinimo] = useState("");
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        const data = {
+          id: "ins-" + Date.now(),
+          nombre: nombre.trim(),
+          categoria,
+          unidad,
+          costoUnitario: parseFloat(costoUnitario) || 0,
+          stock: parseFloat(stock) || 0,
+          stockMinimo: parseFloat(stockMinimo) || 0
+        };
+        setInsumos([...insumos, data]);
+        showToast("Insumo registrado.");
+        setIsModalOpen(false);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Catálogo de Insumos & Empaques (COP)</h2>
+              <p className="text-sm text-slate-500 mt-1">Materias primas y costos base por gramo, mililitro o unidad.</p>
+            </div>
+            <button
+              onClick={() => { setNombre(""); setCostoUnitario(""); setStock(0); setStockMinimo(500); setIsModalOpen(true); }}
+              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow transition"
+            >
+              + Nuevo Insumo
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase">
+                <tr>
+                  <th className="py-3 px-4">Insumo</th>
+                  <th className="py-3 px-4">Tipo</th>
+                  <th className="py-3 px-4">Unidad</th>
+                  <th className="py-3 px-4 text-right">Costo Base ($ COP)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {insumos.map(ins => (
+                  <tr key={ins.id} className="hover:bg-slate-50">
+                    <td className="py-3 px-4 font-bold text-slate-800">{ins.nombre}</td>
+                    <td className="py-3 px-4 text-xs text-slate-500">{ins.categoria}</td>
+                    <td className="py-3 px-4 font-mono">{ins.unidad}</td>
+                    <td className="py-3 px-4 text-right font-black font-mono text-slate-900">
+                      {formatUnitMoney(ins.costoUnitario)} <span className="text-[10px] text-slate-400 font-normal">/ {ins.unidad}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-4">Registrar Insumo</h3>
+                <form onSubmit={handleSave} className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700">Nombre</label>
+                    <input type="text" required value={nombre} onChange={e => setNombre(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700">Categoría</label>
+                      <select value={categoria} onChange={e => setCategoria(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                        <option value="Materia Prima">Materia Prima</option>
+                        <option value="Empaque">Empaque</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Unidad</label>
+                      <select value={unidad} onChange={e => setUnidad(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                        <option value="g">Gramos (g)</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="ml">Mililitros (ml)</option>
+                        <option value="L">Litros (L)</option>
+                        <option value="unidad">Unidad</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700">Costo ($ COP por {unidad})</label>
+                    <input type="number" step="any" required placeholder="Ej: 4.5 para $4.500/kg" value={costoUnitario} onChange={e => setCostoUnitario(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700">Stock Inicial</label>
+                      <input type="number" step="any" value={stock} onChange={e => setStock(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Alerta Mínimo</label>
+                      <input type="number" step="any" value={stockMinimo} onChange={e => setStockMinimo(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-3 py-1.5 rounded-lg text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" className="px-4 py-1.5 bg-amber-500 text-white font-bold rounded-lg shadow">Guardar</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // SECCIÓN PEDIDOS & DASHBOARD & HISTORIAL
+    // ==========================================
+    function PedidosView({ pedidos, setPedidos, productos, showToast }) {
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [clienteNombre, setClienteNombre] = useState("");
+      const [clienteTelefono, setClienteTelefono] = useState("");
+      const [fechaEntrega, setFechaEntrega] = useState(getTodayStr());
+      const [horaEntrega, setHoraEntrega] = useState("16:00");
+      const [fechaHorneo, setFechaHorneo] = useState(getTodayStr());
+      const [productoId, setProductoId] = useState(productos[0]?.id || "");
+      const [cantidad, setCantidad] = useState(1);
+      const [personalizacion, setPersonalizacion] = useState("");
+      const [precioTotal, setPrecioTotal] = useState("");
+      const [abono, setAbono] = useState("");
+
+      useEffect(() => {
+        const p = productos.find(x => x.id === productoId);
+        if (p) {
+          const tot = (p.precioVenta || 0) * cantidad;
+          setPrecioTotal(tot);
+          setAbono(tot * 0.5);
+        }
+      }, [productoId, cantidad, productos]);
+
+      const handleCrear = (e) => {
+        e.preventDefault();
+        const tot = parseFloat(precioTotal) || 0;
+        const ab = parseFloat(abono) || 0;
+        const nuevo = {
+          id: "ped-" + Date.now(),
+          clienteNombre: clienteNombre.trim(),
+          clienteTelefono: clienteTelefono.trim(),
+          fechaEntrega,
+          horaEntrega,
+          fechaHorneo,
+          productoId,
+          cantidad: parseInt(cantidad) || 1,
+          personalizacion: personalizacion.trim(),
+          precioTotal: tot,
+          abono: ab,
+          estadoPago: ab >= tot ? "pagado" : ab > 0 ? "abono" : "pendiente",
+          estadoProduccion: "pendiente",
+          fechaRegistro: getTodayStr()
+        };
+        setPedidos([nuevo, ...pedidos]);
+        showToast("Pedido por encargo registrado.");
+        setIsModalOpen(false);
+      };
+
+      const saldarPago = (id) => {
+        setPedidos(prev => prev.map(p => p.id === id ? { ...p, abono: p.precioTotal, estadoPago: "pagado" } : p));
+        showToast("Saldo cobrado en su totalidad.");
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Libreta de Encargos & Pedidos</h2>
+              <p className="text-sm text-slate-500 mt-1">Fechas de entrega, anticipos y saldos pendientes.</p>
+            </div>
+            <button onClick={() => setIsModalOpen(true)} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow">
+              + Nuevo Encargo
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pedidos.map(p => {
+              const prod = productos.find(x => x.id === p.productoId);
+              const saldo = p.precioTotal - p.abono;
+
+              return (
+                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="text-xs font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          Entrega: {p.fechaEntrega} &bull; {p.horaEntrega} hs
+                        </span>
+                        <h4 className="text-lg font-black text-slate-900 mt-2">{p.clienteNombre}</h4>
+                        <p className="text-xs text-slate-400">{p.clienteTelefono}</p>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black ${p.estadoPago === "pagado" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                        {p.estadoPago === "pagado" ? "✓ Pagado" : `Resta: ${formatMoney(saldo)}`}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 my-3 text-xs">
+                      <p className="font-bold text-slate-800">{p.cantidad}x {prod?.nombre}</p>
+                      {p.personalizacion && <p className="text-slate-500 italic mt-1">"{p.personalizacion}"</p>}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                    <select
+                      value={p.estadoProduccion}
+                      onChange={e => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estadoProduccion: e.target.value } : x))}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 bg-white"
+                    >
+                      <option value="pendiente">🟡 Pendiente</option>
+                      <option value="preparacion">🔥 En Preparación</option>
+                      <option value="terminado">📦 Terminado</option>
+                      <option value="entregado">✅ Entregado</option>
+                    </select>
+
+                    {saldo > 0 && (
+                      <button onClick={() => saldarPago(p.id)} className="px-3 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg shadow">
+                        Cobrar Resto ({formatMoney(saldo)})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-4">Registrar Nuevo Encargo</h3>
+                <form onSubmit={handleCrear} className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700">Cliente</label>
+                      <input type="text" required value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">WhatsApp / Teléfono</label>
+                      <input type="text" value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700">Fecha Entrega</label>
+                      <input type="date" required value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Hora Entrega</label>
+                      <input type="time" required value={horaEntrega} onChange={e => setHoraEntrega(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="font-bold text-slate-700">Producto</label>
+                      <select value={productoId} onChange={e => setProductoId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold">
+                        {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700">Cant.</label>
+                      <input type="number" min="1" value={cantidad} onChange={e => setCantidad(Math.max(1, parseInt(e.target.value) || 1))} className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700">Personalización</label>
+                    <input type="text" placeholder="Dedicatoria, topper, alérgenos..." value={personalizacion} onChange={e => setPersonalizacion(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                    <div>
+                      <label className="font-bold text-amber-900">Total ($ COP)</label>
+                      <input type="number" required value={precioTotal} onChange={e => setPrecioTotal(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-amber-200 font-mono font-bold bg-white" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-amber-900">Anticipo Pagado ($ COP)</label>
+                      <input type="number" value={abono} onChange={e => setAbono(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-amber-200 font-mono font-bold bg-white" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" className="px-5 py-2 bg-amber-500 text-white font-bold rounded-xl shadow">Guardar Encargo</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function DashboardView({ insumos, productos, pedidos, mermas, alertas, calcularCosteoProducto, setActiveTab }) {
+      const pedidosEntregados = pedidos.filter(p => p.estadoProduccion === "entregado" && p.estadoPago === "pagado");
+      let facturacion = pedidosEntregados.reduce((acc, p) => acc + (p.precioTotal || 0), 0);
+      let cogs = 0;
+      pedidosEntregados.forEach(p => {
+        const prod = productos.find(x => x.id === p.productoId);
+        const c = prod ? calcularCosteoProducto(prod) : { costoDirectoUnitario: 0 };
+        cogs += c.costoDirectoUnitario * p.cantidad;
+      });
+      const totalMermas = mermas.reduce((acc, m) => acc + (m.costoPerdida || 0), 0);
+      const gananciaReal = facturacion - cogs - totalMermas;
+
+      return (
+        <div className="space-y-8">
+          <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <span className="text-xs font-black uppercase text-amber-200 bg-amber-700/50 px-2.5 py-0.5 rounded-full">☀️ Tu Taller Hoy</span>
+                <h2 className="text-2xl font-black mt-2">Agenda del Día ({getTodayStr()})</h2>
+                <p className="text-xs text-amber-100 mt-1">Tienes <strong>{alertas.entregasHoy.length} entrega(s) para hoy</strong>.</p>
+              </div>
+              <button onClick={() => setActiveTab("pedidos")} className="px-5 py-2.5 bg-white text-amber-900 font-black text-xs rounded-xl shadow">
+                Abrir Libreta &rarr;
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold uppercase text-slate-400">Facturación Total</span>
+              <p className="text-2xl font-black text-slate-900 font-mono mt-1">{formatMoney(facturacion)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold uppercase text-slate-400">Insumos & Máquinas</span>
+              <p className="text-2xl font-black text-slate-700 font-mono mt-1">{formatMoney(cogs)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm bg-rose-50/40">
+              <span className="text-xs font-bold uppercase text-rose-600">Pérdidas por Mermas</span>
+              <p className="text-2xl font-black text-rose-600 font-mono mt-1">-{formatMoney(totalMermas)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm bg-emerald-50/40">
+              <span className="text-xs font-bold uppercase text-emerald-700">Ganancia Real Neta</span>
+              <p className="text-2xl font-black text-emerald-600 font-mono mt-1">{formatMoney(gananciaReal)}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function HistorialAuditoriaView({ pedidos, historialPrecios, mermas }) {
+      return (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <h2 className="text-xl font-bold text-slate-900">Auditoría & Registro Histórico</h2>
+
+          <div>
+            <h3 className="font-bold text-slate-800 text-xs uppercase mb-3">Mermas y Pérdidas Registradas</h3>
+            {mermas.length === 0 ? <p className="text-xs text-slate-400">Sin mermas registradas.</p> : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase">
+                  <tr>
+                    <th className="py-2 px-3">Fecha</th>
+                    <th className="py-2 px-3">Insumo</th>
+                    <th className="py-2 px-3 text-center">Cant.</th>
+                    <th className="py-2 px-3">Motivo</th>
+                    <th className="py-2 px-3 text-right">Pérdida ($ COP)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {mermas.map(m => (
+                    <tr key={m.id}>
+                      <td className="py-2 px-3 font-mono text-slate-500">{m.fecha}</td>
+                      <td className="py-2 px-3 font-bold">{m.insumoNombre}</td>
+                      <td className="py-2 px-3 text-center font-mono">{m.cantidad} {m.unidad}</td>
+                      <td className="py-2 px-3 text-slate-600">{m.motivo}</td>
+                      <td className="py-2 px-3 text-right font-black text-rose-600 font-mono">-{formatMoney(m.costoPerdida)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
