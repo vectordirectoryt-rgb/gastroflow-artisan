@@ -1,0 +1,2898 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GastroFlow Artisan - Taller de Repostería & Cocina Dulce</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- CDNs Ultraestables Cloudflare (Sin fallos de conexión en Colombia) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #FDFBF7;
+    }
+    .font-serif-brand {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F1ECE4;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D5C7B6;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="text-stone-800 antialiased selection:bg-amber-200">
+  <div id="root">
+    <!-- Mensaje visible mientras inicia -->
+    <div class="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-stone-500 font-sans text-xs">
+      <div class="text-center space-y-2">
+        <div class="w-10 h-10 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p class="font-bold text-stone-700">Iniciando GastroFlow Artisan...</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- FORMATEADOR OFICIAL COLOMBIA (COP) ---
+    const formatCOP = (valor) => {
+      const num = Number(valor);
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        maximumFractionDigits: 0
+      }).format(Math.round(isNaN(num) ? 0 : num));
+    };
+
+    // --- ICONOS SVG NATIVOS ---
+    const Icons = {
+      ChefHat: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+      Scale: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>,
+      BookOpen: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 4v12l-4-2-4 2V4M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+      Box: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>,
+      TrendingUp: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+      History: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      Bell: () => <svg className="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
+      WhatsApp: () => <svg className="w-4 h-4 inline-block" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>,
+      Check: () => <svg className="w-4 h-4 inline-block text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>,
+      Alert: () => <svg className="w-4 h-4 inline-block text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+      Settings: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+      Edit: () => <svg className="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+      Trash: () => <svg className="w-3.5 h-3.5 inline-block text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+      Download: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+      Upload: () => <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+    };
+
+    // --- DATOS SEMILLA BASE ---
+    const SEED_DATA = {
+      insumos: [
+        { id: "ins-1", nombre: "Harina de Trigo Fortificada (Haz de Oros)", unidad: "g", costoUnitario: 4.8, stockActual: 1800, stockMinimo: 1000, presentacionNombre: "Bolsa 1 kg", presentacionCantidad: 1000, precioPresentacion: 4800, proveedor: "Distribuidora La 14" },
+        { id: "ins-2", nombre: "Mantequilla sin sal (Colanta)", unidad: "g", costoUnitario: 34.0, stockActual: 600, stockMinimo: 500, presentacionNombre: "Barra 250 g", presentacionCantidad: 250, precioPresentacion: 8500, proveedor: "Lácteos del Valle" },
+        { id: "ins-3", nombre: "Huevos AA (Santa Anita)", unidad: "und", costoUnitario: 750, stockActual: 18, stockMinimo: 15, presentacionNombre: "Panal 30 und", presentacionCantidad: 30, precioPresentacion: 22500, proveedor: "Avícola Central" },
+        { id: "ins-4", nombre: "Azúcar Blanca Refinada (Manuelita)", unidad: "g", costoUnitario: 4.2, stockActual: 2500, stockMinimo: 1000, presentacionNombre: "Bolsa 1 kg", presentacionCantidad: 1000, precioPresentacion: 4200, proveedor: "Central de Abastos" },
+        { id: "ins-5", nombre: "Chocolate Semiamargo 70% (Cordillera)", unidad: "g", costoUnitario: 52.0, stockActual: 300, stockMinimo: 600, presentacionNombre: "Bloque 1 kg", presentacionCantidad: 1000, precioPresentacion: 52000, proveedor: "Nacional de Chocolates" },
+        { id: "ins-6", nombre: "Crema de Leche para Batir (Alquería)", unidad: "ml", costoUnitario: 22.0, stockActual: 900, stockMinimo: 800, presentacionNombre: "Bolsa 900 ml", presentacionCantidad: 900, precioPresentacion: 19800, proveedor: "Distribuidora Láctea" },
+        { id: "ins-7", nombre: "Fresas Seleccionadas Frescas", unidad: "g", costoUnitario: 14.0, stockActual: 450, stockMinimo: 500, presentacionNombre: "Caja 500 g", presentacionCantidad: 500, precioPresentacion: 7000, proveedor: "Finca Santa Elena" },
+        { id: "ins-8", nombre: "Caja Pastelería Microcorrugado + Cinta", unidad: "und", costoUnitario: 4500, stockActual: 12, stockMinimo: 10, presentacionNombre: "Paquete 10 und", presentacionCantidad: 10, precioPresentacion: 45000, proveedor: "Empaques Andinos" }
+      ],
+      recetas: [
+        {
+          id: "rec-1",
+          nombre: "Torta Húmeda de Chocolate Cordillera 70%",
+          descripcion: "Bizcocho artesanal esponjoso bañado en almíbar de café suave y ganache sedoso.",
+          porcionesRendimiento: 12,
+          ingredientes: [
+            { insumoId: "ins-1", cantidad: 350 },
+            { insumoId: "ins-2", cantidad: 200 },
+            { insumoId: "ins-3", cantidad: 4 },
+            { insumoId: "ins-4", cantidad: 300 },
+            { insumoId: "ins-5", cantidad: 250 },
+            { insumoId: "ins-6", cantidad: 200 },
+            { insumoId: "ins-8", cantidad: 1 }
+          ],
+          mermaPorcentaje: 4,
+          tiempoMinutos: 90,
+          precioVentaSugerido: 95000,
+          procesosEquipos: [
+            { nombre: "Horno Convector (180°C)", potenciaWatts: 2400, minutosUso: 50 },
+            { nombre: "Batidora Planetaria 7L", potenciaWatts: 600, minutosUso: 25 }
+          ]
+        },
+        {
+          id: "rec-2",
+          nombre: "Cheesecake Horneado New York con Fresas",
+          descripcion: "Clásica base crocante con crema horneada densa y compota rústica de fresas frescas.",
+          porcionesRendimiento: 10,
+          ingredientes: [
+            { insumoId: "ins-1", cantidad: 120 },
+            { insumoId: "ins-2", cantidad: 100 },
+            { insumoId: "ins-3", cantidad: 3 },
+            { insumoId: "ins-4", cantidad: 180 },
+            { insumoId: "ins-6", cantidad: 300 },
+            { insumoId: "ins-7", cantidad: 400 },
+            { insumoId: "ins-8", cantidad: 1 }
+          ],
+          mermaPorcentaje: 3,
+          tiempoMinutos: 110,
+          precioVentaSugerido: 110000,
+          procesosEquipos: [
+            { nombre: "Horno Baño de María", potenciaWatts: 2000, minutosUso: 65 }
+          ]
+        }
+      ],
+      pedidos: [
+        {
+          id: "PED-101",
+          cliente: "Camila Restrepo",
+          telefono: "3154879201",
+          fechaEntrega: new Date().toISOString().split('T')[0],
+          horaEntrega: "16:00",
+          items: [{ recetaId: "rec-1", cantidad: 1 }],
+          totalCobrado: 95000,
+          abono: 50000,
+          estado: "pendiente",
+          notas: "Dedicatoria: 'Feliz Cumple Mamá'"
+        },
+        {
+          id: "PED-102",
+          cliente: "Esteban Morales",
+          telefono: "3006541289",
+          fechaEntrega: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          horaEntrega: "11:30",
+          items: [{ recetaId: "rec-2", cantidad: 1 }],
+          totalCobrado: 110000,
+          abono: 0,
+          estado: "pendiente",
+          notas: "Sin fresas en la superficie, compota rústica aparte."
+        }
+      ],
+      configuracion: {
+        costoKwhCOP: 820,
+        salarioDeseadoHoraCOP: 18000,
+        cifPorcentaje: 10
+      },
+      historialMermas: [
+        {
+          id: "mrm-1",
+          fecha: new Date(Date.now() - 172800000).toISOString(),
+          insumoNombre: "Fresas Seleccionadas Frescas",
+          cantidad: 150,
+          unidad: "g",
+          costoPerdidoCOP: 2100,
+          motivo: "Deterioro por humedad"
+        }
+      ]
+    };
+
+    // --- CARGADOR SEGURO DE LOCALSTORAGE (Previene pantallas blancas) ---
+    const safeLoad = (key, fallback) => {
+      try {
+        const item = localStorage.getItem(key);
+        if (!item) return fallback;
+        const parsed = JSON.parse(item);
+        if (parsed === null || parsed === undefined) return fallback;
+        if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+        return parsed;
+      } catch (e) {
+        console.warn("Storage warning, cargando valores predeterminados:", e);
+        return fallback;
+      }
+    };
+
+    // --- COMPONENTE PRINCIPAL APP ---
+    function App() {
+      const STORAGE_KEY = "gf_master_v12";
+
+      const [insumos, setInsumos] = useState(() => safeLoad(`${STORAGE_KEY}_insumos`, SEED_DATA.insumos));
+      const [recetas, setRecetas] = useState(() => safeLoad(`${STORAGE_KEY}_recetas`, SEED_DATA.recetas));
+      const [pedidos, setPedidos] = useState(() => safeLoad(`${STORAGE_KEY}_pedidos`, SEED_DATA.pedidos));
+      const [configuracion, setConfiguracion] = useState(() => safeLoad(`${STORAGE_KEY}_config`, SEED_DATA.configuracion));
+      const [historialMermas, setHistorialMermas] = useState(() => safeLoad(`${STORAGE_KEY}_mermas`, SEED_DATA.historialMermas));
+
+      const [activeTab, setActiveTab] = useState("dashboard");
+
+      const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+      const [insumoParaComprar, setInsumoParaComprar] = useState(null);
+      const [filtroPedidoLibreta, setFiltroPedidoLibreta] = useState(null);
+      const [modalConfig, setModalConfig] = useState(false);
+      const [toastMsg, setToastMsg] = useState(null);
+
+      useEffect(() => {
+        try { localStorage.setItem(`${STORAGE_KEY}_insumos`, JSON.stringify(insumos)); } catch (e) {}
+      }, [insumos]);
+      useEffect(() => {
+        try { localStorage.setItem(`${STORAGE_KEY}_recetas`, JSON.stringify(recetas)); } catch (e) {}
+      }, [recetas]);
+      useEffect(() => {
+        try { localStorage.setItem(`${STORAGE_KEY}_pedidos`, JSON.stringify(pedidos)); } catch (e) {}
+      }, [pedidos]);
+      useEffect(() => {
+        try { localStorage.setItem(`${STORAGE_KEY}_config`, JSON.stringify(configuracion)); } catch (e) {}
+      }, [configuracion]);
+      useEffect(() => {
+        try { localStorage.setItem(`${STORAGE_KEY}_mermas`, JSON.stringify(historialMermas)); } catch (e) {}
+      }, [historialMermas]);
+
+      const dispararToast = (mensaje) => {
+        setToastMsg(mensaje);
+        setTimeout(() => setToastMsg(null), 3500);
+      };
+
+      const descargarRespaldo = () => {
+        const datosBackup = {
+          version: "GastroFlow_v12",
+          fechaExportacion: new Date().toISOString(),
+          insumos,
+          recetas,
+          pedidos,
+          configuracion,
+          historialMermas
+        };
+        const blob = new Blob([JSON.stringify(datosBackup, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const fechaStr = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `GastroFlow_Respaldo_${fechaStr}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        dispararToast("¡Copia de respaldo descargada con éxito!");
+      };
+
+      const restaurarRespaldo = (e) => {
+        const archivo = e.target.files[0];
+        if (!archivo) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.insumos && data.recetas && data.pedidos) {
+              setInsumos(data.insumos);
+              setRecetas(data.recetas);
+              setPedidos(data.pedidos);
+              if (data.configuracion) setConfiguracion(data.configuracion);
+              if (data.historialMermas) setHistorialMermas(data.historialMermas);
+              dispararToast("¡Datos restaurados con éxito desde el archivo!");
+              setModalConfig(false);
+            } else {
+              alert("El archivo no contiene un formato de respaldo válido para GastroFlow.");
+            }
+          } catch (err) {
+            alert("Error al leer el archivo de respaldo. Asegúrate de que sea un archivo JSON válido.");
+          }
+        };
+        reader.readAsText(archivo);
+      };
+
+      const insumosCriticos = useMemo(() => (insumos || []).filter(i => i.stockActual <= i.stockMinimo), [insumos]);
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const pedidosHoy = useMemo(() => (pedidos || []).filter(p => p.fechaEntrega === hoyStr && p.estado !== 'completado' && p.estado !== 'cancelado'), [pedidos, hoyStr]);
+
+      return (
+        <div className="min-h-screen flex flex-col bg-[#FDFBF7]">
+          {toastMsg && (
+            <div className="fixed bottom-6 right-6 z-50 bg-stone-900 text-amber-200 px-5 py-3 rounded-xl shadow-2xl flex items-center space-x-3 border border-amber-800/50 animate-bounce">
+              <Icons.Check />
+              <span className="text-sm font-medium text-white">{toastMsg}</span>
+            </div>
+          )}
+
+          {/* ENCABEZADO */}
+          <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab("dashboard")}>
+                <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-serif-brand font-bold text-xl shadow-md">
+                  G
+                </div>
+                <div>
+                  <h1 className="font-serif-brand font-bold text-lg text-stone-900 leading-none">
+                    GastroFlow <span className="text-amber-700 font-sans text-[11px] font-bold uppercase tracking-wider ml-1 bg-amber-100 px-2 py-0.5 rounded-full">Artisan</span>
+                  </h1>
+                  <p className="text-xs text-stone-500 mt-0.5">Taller de Cocina & Repostería</p>
+                </div>
+              </div>
+
+              {/* NAVEGACIÓN 6 PESTAÑAS */}
+              <nav className="hidden lg:flex items-center space-x-1">
+                {[
+                  { id: "dashboard", label: "Dashboard", icon: Icons.TrendingUp },
+                  { id: "pedidos", label: "Libreta de Encargos", icon: Icons.BookOpen },
+                  { id: "cocina", label: "Preparación & Cocina", icon: Icons.ChefHat },
+                  { id: "inventario", label: "Bodega e Insumos", icon: Icons.Box },
+                  { id: "recetas", label: "Recetario & Costeo", icon: Icons.Scale },
+                  { id: "auditoria", label: "Auditoría e Historial", icon: Icons.History }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                      activeTab === tab.id
+                        ? "bg-amber-100 text-amber-900 shadow-xs"
+                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-100"
+                    }`}
+                  >
+                    <tab.icon />
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setModalConfig(true)}
+                  className="p-2 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-full transition"
+                  title="Ajustar Tarifas & Respaldo"
+                >
+                  <Icons.Settings />
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotificationMenu(!showNotificationMenu)}
+                    className="relative p-2 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-full transition"
+                    title="Alertas de Producción & Stock"
+                  >
+                    <Icons.Bell />
+                    {(insumosCriticos.length > 0 || pedidosHoy.length > 0) && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white animate-pulse" />
+                    )}
+                  </button>
+
+                  {showNotificationMenu && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200 py-3 z-50">
+                      <div className="px-4 pb-2 border-b border-stone-100 flex items-center justify-between">
+                        <h3 className="font-bold text-xs uppercase tracking-wider text-stone-500">Alertas del Taller</h3>
+                        <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-bold">
+                          {insumosCriticos.length + pedidosHoy.length} activas
+                        </span>
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-stone-100 text-xs">
+                        {pedidosHoy.map(p => (
+                          <div key={p.id} className="p-3 bg-amber-50/50 hover:bg-amber-50 flex items-start justify-between">
+                            <div>
+                              <p className="font-bold text-stone-900">Entrega de Hoy: <span className="text-amber-800">{p.cliente}</span></p>
+                              <p className="text-stone-500 text-[11px]">Hora: {p.horaEntrega} • Saldo: {formatCOP(p.totalCobrado - p.abono)}</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setFiltroPedidoLibreta(p.id);
+                                setActiveTab("pedidos");
+                                setShowNotificationMenu(false);
+                              }}
+                              className="bg-amber-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-amber-700 shadow-xs"
+                            >
+                              Ver
+                            </button>
+                          </div>
+                        ))}
+
+                        {insumosCriticos.map(i => (
+                          <div key={i.id} className="p-3 bg-rose-50/50 hover:bg-rose-50 flex items-start justify-between">
+                            <div>
+                              <p className="font-bold text-rose-900">{i.nombre}</p>
+                              <p className="text-rose-700 text-[11px]">Stock: {i.stockActual} {i.unidad} (Mín: {i.stockMinimo} {i.unidad})</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setInsumoParaComprar(i);
+                                setActiveTab("inventario");
+                                setShowNotificationMenu(false);
+                              }}
+                              className="bg-rose-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-rose-700 shadow-xs"
+                            >
+                              Comprar
+                            </button>
+                          </div>
+                        ))}
+
+                        {insumosCriticos.length === 0 && pedidosHoy.length === 0 && (
+                          <div className="p-6 text-center text-stone-400">
+                            <Icons.Check />
+                            <p className="mt-1 text-xs">Todo al día en cocina y bodega.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* MÓVIL */}
+            <div className="flex lg:hidden border-t border-stone-100 overflow-x-auto px-3 py-1.5 space-x-1.5">
+              {[
+                { id: "dashboard", label: "Dashboard" },
+                { id: "pedidos", label: "Libreta" },
+                { id: "cocina", label: "Cocina" },
+                { id: "inventario", label: "Bodega" },
+                { id: "recetas", label: "Recetario" },
+                { id: "auditoria", label: "Auditoría" }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${
+                    activeTab === t.id ? "bg-amber-100 text-amber-900" : "text-stone-500"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+            {activeTab === "dashboard" && (
+              <DashboardView
+                pedidos={pedidos}
+                recetas={recetas}
+                insumos={insumos}
+                historialMermas={historialMermas}
+                onNavegar={(tab, filtroId) => {
+                  if (filtroId) setFiltroPedidoLibreta(filtroId);
+                  setActiveTab(tab);
+                }}
+              />
+            )}
+
+            {activeTab === "pedidos" && (
+              <PedidosView
+                pedidos={pedidos}
+                setPedidos={setPedidos}
+                recetas={recetas}
+                insumos={insumos}
+                setInsumos={setInsumos}
+                filtroPedidoId={filtroPedidoLibreta}
+                setFiltroPedidoId={setFiltroPedidoLibreta}
+                dispararToast={dispararToast}
+              />
+            )}
+
+            {activeTab === "cocina" && (
+              <CocinaView
+                pedidos={pedidos}
+                recetas={recetas}
+                insumos={insumos}
+                dispararToast={dispararToast}
+              />
+            )}
+
+            {activeTab === "inventario" && (
+              <InventarioBodegaView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                historialMermas={historialMermas}
+                setHistorialMermas={setHistorialMermas}
+                insumoParaComprar={insumoParaComprar}
+                setInsumoParaComprar={setInsumoParaComprar}
+                dispararToast={dispararToast}
+              />
+            )}
+
+            {activeTab === "recetas" && (
+              <RecetasView
+                recetas={recetas}
+                setRecetas={setRecetas}
+                insumos={insumos}
+                configuracion={configuracion}
+                dispararToast={dispararToast}
+              />
+            )}
+
+            {activeTab === "auditoria" && (
+              <AuditoriaView
+                historialMermas={historialMermas}
+                pedidos={pedidos}
+                recetas={recetas}
+              />
+            )}
+          </main>
+
+          {modalConfig && (
+            <ModalAjustesTarifas
+              configuracion={configuracion}
+              setConfiguracion={setConfiguracion}
+              onCerrar={() => setModalConfig(false)}
+              onDescargarRespaldo={descargarRespaldo}
+              onRestaurarRespaldo={restaurarRespaldo}
+              dispararToast={dispararToast}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 1. DASHBOARD & AGENDA
+    // =========================================================================
+    function DashboardView({ pedidos, recetas, insumos, historialMermas, onNavegar }) {
+      const chartRef = useRef(null);
+      const chartInstance = useRef(null);
+
+      const totalVentas = (pedidos || [])
+        .filter(p => p.estado !== 'cancelado')
+        .reduce((sum, p) => sum + (p.totalCobrado || 0), 0);
+
+      const saldosPendientes = (pedidos || [])
+        .filter(p => p.estado !== 'cancelado' && p.estado !== 'completado')
+        .reduce((sum, p) => sum + ((p.totalCobrado || 0) - (p.abono || 0)), 0);
+
+      const valorBodega = (insumos || []).reduce((sum, i) => sum + (i.stockActual * i.costoUnitario), 0);
+      const perdidasMermas = (historialMermas || []).reduce((sum, m) => sum + (m.costoPerdidoCOP || 0), 0);
+
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const agendaHoy = (pedidos || []).filter(p => p.fechaEntrega === hoyStr && p.estado !== 'cancelado');
+
+      // Gráfica protegida contra fallos de Chart.js
+      useEffect(() => {
+        if (!chartRef.current || typeof Chart === 'undefined') return;
+
+        try {
+          if (chartInstance.current) chartInstance.current.destroy();
+
+          const ctx = chartRef.current.getContext('2d');
+          const etiquetas = (recetas || []).map(r => r.nombre.length > 20 ? r.nombre.substring(0, 20) + '...' : r.nombre);
+
+          const costos = (recetas || []).map(r => {
+            return (r.ingredientes || []).reduce((sum, ing) => {
+              const ins = (insumos || []).find(i => i.id === ing.insumoId);
+              return sum + (ins ? ins.costoUnitario * ing.cantidad : 0);
+            }, 0);
+          });
+
+          const ventas = (recetas || []).map(r => r.precioVentaSugerido || 0);
+
+          chartInstance.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: etiquetas,
+              datasets: [
+                { label: 'Precio Sugerido Venta ($)', data: ventas, backgroundColor: 'rgba(217, 119, 6, 0.85)', borderRadius: 6 },
+                { label: 'Costo Insumos Directos ($)', data: costos, backgroundColor: 'rgba(239, 68, 68, 0.75)', borderRadius: 6 }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, family: 'Plus Jakarta Sans' } } },
+                tooltip: {
+                  callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCOP(ctx.raw)}` }
+                }
+              },
+              scales: {
+                y: { beginAtZero: true, ticks: { callback: (v) => '$' + (v / 1000) + 'k' } }
+              }
+            }
+          });
+        } catch (err) {
+          console.warn("No se pudo inicializar Chart.js:", err);
+        }
+
+        return () => {
+          if (chartInstance.current) {
+            try { chartInstance.current.destroy(); } catch (e) {}
+          }
+        };
+      }, [recetas, insumos]);
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-amber-900 to-stone-900 text-white p-6 rounded-3xl shadow-lg">
+            <div>
+              <span className="text-amber-400 font-bold text-xs uppercase tracking-widest">Resumen Financiero & Taller</span>
+              <h2 className="text-2xl sm:text-3xl font-serif-brand font-bold mt-1">GastroFlow Artisan</h2>
+              <p className="text-stone-300 text-xs sm:text-sm mt-1">Supervisión en tiempo real de bodega, agenda y finanzas.</p>
+            </div>
+            <button
+              onClick={() => onNavegar("pedidos")}
+              className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md flex items-center space-x-2 self-start sm:self-auto"
+            >
+              <Icons.BookOpen />
+              <span>Abrir Libreta de Encargos</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Total Encargos</span>
+              <p className="text-xl sm:text-2xl font-black text-stone-900 mt-1">{formatCOP(totalVentas)}</p>
+              <span className="text-[11px] text-emerald-600 font-semibold">Incluye abonos y liquidados</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Saldos por Cobrar</span>
+              <p className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{formatCOP(saldosPendientes)}</p>
+              <span className="text-[11px] text-stone-400 font-medium">Por recibir contra entrega</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Valor de Bodega</span>
+              <p className="text-xl sm:text-2xl font-black text-stone-900 mt-1">{formatCOP(valorBodega)}</p>
+              <span className="text-[11px] text-stone-400 font-medium">{(insumos || []).length} materias primas</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600">Pérdidas por Mermas</span>
+              <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">{formatCOP(perdidasMermas)}</p>
+              <button onClick={() => onNavegar("auditoria")} className="text-[11px] text-stone-500 hover:text-stone-900 font-bold underline">
+                Ver auditoría &rarr;
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                  <h3 className="font-bold text-stone-800 text-sm flex items-center space-x-2">
+                    <Icons.History />
+                    <span>Entregas de Hoy ({hoyStr})</span>
+                  </h3>
+                  <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                    {agendaHoy.length} pendientes
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {agendaHoy.length === 0 ? (
+                    <div className="py-10 text-center text-stone-400">
+                      <p className="text-sm font-medium">No tienes entregas agendadas para hoy.</p>
+                      <button onClick={() => onNavegar("pedidos")} className="mt-2 text-xs text-amber-800 font-bold hover:underline">
+                        Crear nuevo encargo &rarr;
+                      </button>
+                    </div>
+                  ) : (
+                    agendaHoy.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => onNavegar("pedidos", p.id)}
+                        className="p-3 rounded-xl border border-stone-100 bg-stone-50/70 hover:bg-amber-50/60 hover:border-amber-200 transition cursor-pointer flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold text-stone-900">{p.cliente}</span>
+                            <span className={`text-[10px] px-2 py-0.2 rounded font-bold ${
+                              p.estado === 'en_preparacion' ? 'bg-amber-100 text-amber-800' : 'bg-stone-200 text-stone-700'
+                            }`}>
+                              {p.estado === 'en_preparacion' ? 'En Horno/Mesa' : 'Pendiente'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-500 mt-0.5">Hora: <strong className="text-stone-700">{p.horaEntrega}</strong> • Tel: {p.telefono}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-stone-900">{formatCOP(p.totalCobrado)}</p>
+                          <p className="text-[10px] text-amber-700 font-semibold">Resta: {formatCOP(p.totalCobrado - p.abono)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-stone-100 mt-4 flex items-center justify-between text-xs">
+                <span className="text-stone-400">¿Revisar compras de ingredientes?</span>
+                <button onClick={() => onNavegar("cocina")} className="text-amber-800 font-bold hover:underline flex items-center space-x-1">
+                  <Icons.ChefHat />
+                  <span>Mesa de Cocina & WhatsApp</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-stone-800 text-sm flex items-center space-x-2">
+                  <Icons.TrendingUp />
+                  <span>Margen Bruto de Materia Prima por Receta</span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">Precio de venta público sugerido frente a los insumos directos.</p>
+                <div className="h-64 mt-4 relative">
+                  <canvas ref={chartRef}></canvas>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-stone-100 text-xs text-stone-400 flex items-center justify-between">
+                <span>Calculado automáticamente según precios vigentes</span>
+                <button onClick={() => onNavegar("recetas")} className="text-amber-700 font-semibold hover:underline">
+                  Ajustar recetario &rarr;
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 2. LIBRETA DE ENCARGOS
+    // =========================================================================
+    function PedidosView({ pedidos, setPedidos, recetas, insumos, setInsumos, filtroPedidoId, setFiltroPedidoId, dispararToast }) {
+      const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
+      const [modalPaseCocina, setModalPaseCocina] = useState(null);
+      const [pedidoParaWhatsApp, setPedidoParaWhatsApp] = useState(null);
+      const [filtroTexto, setFiltroTexto] = useState("");
+
+      useEffect(() => {
+        if (filtroPedidoId) setFiltroTexto(filtroPedidoId);
+      }, [filtroPedidoId]);
+
+      const [formCliente, setFormCliente] = useState("");
+      const [formTelefono, setFormTelefono] = useState("");
+      const [formFecha, setFormFecha] = useState(new Date().toISOString().split('T')[0]);
+      const [formHora, setFormHora] = useState("15:00");
+      const [formRecetaId, setFormRecetaId] = useState(recetas[0]?.id || "");
+      const [formCantidad, setFormCantidad] = useState(1);
+      const [formTotal, setFormTotal] = useState(0);
+      const [formAbono, setFormAbono] = useState(0);
+      const [formNotas, setFormNotas] = useState("");
+
+      useEffect(() => {
+        const rec = (recetas || []).find(r => r.id === formRecetaId);
+        if (rec) {
+          const sug = (rec.precioVentaSugerido || 0) * formCantidad;
+          setFormTotal(sug);
+          setFormAbono(Math.round(sug * 0.5));
+        }
+      }, [formRecetaId, formCantidad, recetas]);
+
+      const guardarPedido = (e) => {
+        e.preventDefault();
+        if (!formCliente) return alert("Escribe el nombre del cliente");
+
+        const nuevo = {
+          id: `PED-${Math.floor(100 + Math.random() * 900)}`,
+          cliente: formCliente,
+          telefono: formTelefono,
+          fechaEntrega: formFecha,
+          horaEntrega: formHora,
+          items: [{ recetaId: formRecetaId, cantidad: Number(formCantidad) }],
+          totalCobrado: Number(formTotal),
+          abono: Number(formAbono),
+          estado: "pendiente",
+          notas: formNotas
+        };
+
+        setPedidos([nuevo, ...(pedidos || [])]);
+        setMostrarModalNuevo(false);
+        dispararToast(`¡Encargo de ${formCliente} agendado con éxito!`);
+
+        setFormCliente("");
+        setFormTelefono("");
+        setFormNotas("");
+      };
+
+      const cambiarEstado = (id, nuevoEstado) => {
+        setPedidos((pedidos || []).map(p => p.id === id ? { ...p, estado: nuevoEstado } : p));
+        dispararToast(`Estado de encargo actualizado a: ${nuevoEstado}`);
+      };
+
+      const pedidosFiltrados = (pedidos || []).filter(p => {
+        const txt = (filtroTexto || "").toLowerCase();
+        return (p.cliente || "").toLowerCase().includes(txt) || (p.id || "").toLowerCase().includes(txt) || (p.telefono || "").includes(txt);
+      });
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif-brand font-bold text-stone-900">Libreta de Encargos</h2>
+              <p className="text-xs text-stone-500">Control de pedidos personalizados, saldos y confirmaciones por WhatsApp.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="Buscar cliente o código..."
+                value={filtroTexto}
+                onChange={e => { setFiltroTexto(e.target.value); if (filtroPedidoId) setFiltroPedidoId(null); }}
+                className="bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none w-48 sm:w-64"
+              />
+              <button
+                onClick={() => setMostrarModalNuevo(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center space-x-1"
+              >
+                <span>+ Nuevo Encargo</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {pedidosFiltrados.map(p => {
+              const saldo = (p.totalCobrado || 0) - (p.abono || 0);
+              const esHoy = p.fechaEntrega === new Date().toISOString().split('T')[0];
+              const sinAnticipo = (p.abono || 0) === 0;
+
+              return (
+                <div
+                  key={p.id}
+                  className={`bg-white rounded-2xl border p-5 transition-shadow relative flex flex-col justify-between ${
+                    filtroPedidoId === p.id ? 'border-amber-500 ring-2 ring-amber-300 shadow-md' : 'border-stone-200 hover:shadow-md'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{p.id}</span>
+                        <h3 className="text-base font-bold text-stone-900 leading-tight mt-0.5">{p.cliente}</h3>
+                        <p className="text-xs text-stone-500">Tel: {p.telefono || 'Sin teléfono'}</p>
+                      </div>
+
+                      <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                        p.estado === 'completado' ? 'bg-emerald-100 text-emerald-800' :
+                        p.estado === 'en_preparacion' ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                        p.estado === 'cancelado' ? 'bg-rose-100 text-rose-800' : 'bg-stone-100 text-stone-700'
+                      }`}>
+                        {p.estado === 'pendiente' && 'Pendiente'}
+                        {p.estado === 'en_preparacion' && 'En Cocina'}
+                        {p.estado === 'completado' && 'Entregado'}
+                        {p.estado === 'cancelado' && 'Cancelado'}
+                      </span>
+                    </div>
+
+                    {sinAnticipo && p.estado !== 'cancelado' && p.estado !== 'completado' && (
+                      <div className="mt-2.5 bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center space-x-1.5">
+                        <Icons.Alert />
+                        <span>⚠️ Sin anticipo recibido (Riesgo en cocina)</span>
+                      </div>
+                    )}
+
+                    <div className="mt-3 py-2 border-y border-stone-100 space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-stone-500">Fecha de Entrega:</span>
+                        <span className={`font-bold ${esHoy ? 'text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded' : 'text-stone-800'}`}>
+                          {p.fechaEntrega} ({p.horaEntrega})
+                        </span>
+                      </div>
+                      <div className="text-stone-700 font-medium">
+                        {(p.items || []).map((it, idx) => {
+                          const r = (recetas || []).find(rec => rec.id === it.recetaId);
+                          return (
+                            <p key={idx} className="flex justify-between">
+                              <span>• {it.cantidad}x {r?.nombre || 'Producto'}</span>
+                            </p>
+                          );
+                        })}
+                      </div>
+                      {p.notas && (
+                        <p className="text-[11px] text-amber-900 bg-amber-50/70 p-2 rounded-lg italic mt-1 border border-amber-100">
+                          "{p.notas}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-stone-400 text-[10px] uppercase font-bold block">Cobro Total</span>
+                        <span className="text-sm font-extrabold text-stone-900">{formatCOP(p.totalCobrado)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-stone-400 text-[10px] uppercase font-bold block">Saldo Pendiente</span>
+                        <span className={`text-sm font-extrabold ${saldo > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {formatCOP(saldo)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-stone-100 space-y-2">
+                    <button
+                      onClick={() => setPedidoParaWhatsApp(p)}
+                      className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2 border border-emerald-200"
+                    >
+                      <Icons.WhatsApp />
+                      <span>Redactar WhatsApp al Cliente</span>
+                    </button>
+
+                    {p.estado === 'pendiente' && (
+                      <button
+                        onClick={() => setModalPaseCocina(p)}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2 shadow-xs"
+                      >
+                        <Icons.ChefHat />
+                        <span>Validar & Pasar a Cocina</span>
+                      </button>
+                    )}
+
+                    {p.estado === 'en_preparacion' && (
+                      <button
+                        onClick={() => cambiarEstado(p.id, 'completado')}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2 shadow-xs"
+                      >
+                        <Icons.Check />
+                        <span>Marcar como Entregado / Liquidado</span>
+                      </button>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+                      {p.abono < p.totalCobrado && (
+                        <button
+                          onClick={() => {
+                            const nuevo = prompt(`Registrar nuevo valor abonado (Total: ${p.totalCobrado}):`, p.totalCobrado);
+                            if (nuevo !== null) {
+                              setPedidos((pedidos || []).map(ped => ped.id === p.id ? { ...ped, abono: Number(nuevo) } : ped));
+                              dispararToast("Abono actualizado");
+                            }
+                          }}
+                          className="text-amber-800 hover:underline font-bold"
+                        >
+                          + Registrar Abono
+                        </button>
+                      )}
+                      {p.estado !== 'cancelado' && p.estado !== 'completado' && (
+                        <button
+                          onClick={() => {
+                            if (confirm("¿Deseas cancelar este encargo?")) cambiarEstado(p.id, 'cancelado');
+                          }}
+                          className="text-rose-500 hover:underline ml-auto"
+                        >
+                          Cancelar encargo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {mostrarModalNuevo && (
+            <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200">
+                <h3 className="font-serif-brand font-bold text-xl text-stone-900">Registrar Nuevo Encargo</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Captura los datos del cliente, entrega y anticipo recibido.</p>
+
+                <form onSubmit={guardarPedido} className="mt-4 space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-stone-700 block mb-1">Nombre Completo del Cliente *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formCliente}
+                      onChange={e => setFormCliente(e.target.value)}
+                      placeholder="Ej. Valeria Gómez"
+                      className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-stone-700 block mb-1">Teléfono / WhatsApp</label>
+                      <input
+                        type="text"
+                        value={formTelefono}
+                        onChange={e => setFormTelefono(e.target.value)}
+                        placeholder="Ej. 3125678900"
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-stone-700 block mb-1">Hora de Entrega</label>
+                      <input
+                        type="time"
+                        value={formHora}
+                        onChange={e => setFormHora(e.target.value)}
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-stone-700 block mb-1">Fecha de Entrega *</label>
+                    <input
+                      type="date"
+                      required
+                      value={formFecha}
+                      onChange={e => setFormFecha(e.target.value)}
+                      className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <label className="font-bold text-stone-700 block mb-1">Producto / Receta</label>
+                      <select
+                        value={formRecetaId}
+                        onChange={e => setFormRecetaId(e.target.value)}
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      >
+                        {(recetas || []).map(r => (
+                          <option key={r.id} value={r.id}>{r.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-stone-700 block mb-1">Cantidad</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formCantidad}
+                        onChange={e => setFormCantidad(Math.max(1, Number(e.target.value)))}
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-center font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="font-bold text-stone-700 block mb-1">Valor Total Cobrado (COP)</label>
+                      <input
+                        type="number"
+                        value={formTotal}
+                        onChange={e => setFormTotal(Number(e.target.value))}
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500 font-bold text-stone-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-stone-700 block mb-1">Abono Inicial (Anticipo)</label>
+                      <input
+                        type="number"
+                        value={formAbono}
+                        onChange={e => setFormAbono(Number(e.target.value))}
+                        className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500 font-bold text-emerald-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-stone-700 block mb-1">Notas o Personalización (Opcional)</label>
+                    <textarea
+                      rows="2"
+                      value={formNotas}
+                      onChange={e => setFormNotas(e.target.value)}
+                      placeholder="Dedicatoria, cambios de sabor, decoración..."
+                      className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end space-x-3 pt-4 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarModalNuevo(false)}
+                      className="px-4 py-2.5 rounded-xl font-bold text-stone-500 hover:bg-stone-100 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md transition"
+                    >
+                      Guardar Encargo
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {modalPaseCocina && (
+            <ModalPaseCocina
+              pedido={modalPaseCocina}
+              recetas={recetas}
+              insumos={insumos}
+              onCerrar={() => setModalPaseCocina(null)}
+              onConfirmar={() => {
+                const nuevosInsumos = [...(insumos || [])];
+                (modalPaseCocina.items || []).forEach(it => {
+                  const rec = (recetas || []).find(r => r.id === it.recetaId);
+                  if (rec) {
+                    (rec.ingredientes || []).forEach(ing => {
+                      const idx = nuevosInsumos.findIndex(i => i.id === ing.insumoId);
+                      if (idx !== -1) {
+                        const totalReq = ing.cantidad * it.cantidad;
+                        nuevosInsumos[idx] = {
+                          ...nuevosInsumos[idx],
+                          stockActual: Math.max(0, nuevosInsumos[idx].stockActual - totalReq)
+                        };
+                      }
+                    });
+                  }
+                });
+
+                setInsumos(nuevosInsumos);
+                cambiarEstado(modalPaseCocina.id, 'en_preparacion');
+                setModalPaseCocina(null);
+                dispararToast(`¡Insumos descontados de bodega! Pedido ${modalPaseCocina.id} en marcha.`);
+              }}
+            />
+          )}
+
+          {pedidoParaWhatsApp && (
+            <ModalEditorMensajeWhatsApp
+              pedido={pedidoParaWhatsApp}
+              recetas={recetas}
+              onCerrar={() => setPedidoParaWhatsApp(null)}
+              dispararToast={dispararToast}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function ModalEditorMensajeWhatsApp({ pedido, recetas, onCerrar, dispararToast }) {
+      const saldo = (pedido.totalCobrado || 0) - (pedido.abono || 0);
+      const nombresRecetas = (pedido.items || []).map(it => {
+        const r = (recetas || []).find(rec => rec.id === it.recetaId);
+        return `${it.cantidad}x ${r?.nombre || 'Producto'}`;
+      }).join(', ');
+
+      const mensajePorDefecto = `¡Hola ${pedido.cliente}! 🧁 Te saludamos de nuestro taller de repostería.\n\n` +
+        `Te confirmamos los detalles de tu encargo:\n` +
+        `• *Producto:* ${nombresRecetas}\n` +
+        `• *Fecha de Entrega:* ${pedido.fechaEntrega} a las ${pedido.horaEntrega}\n` +
+        `• *Total:* ${formatCOP(pedido.totalCobrado)}\n` +
+        `• *Abono recibido:* ${formatCOP(pedido.abono)}\n` +
+        `• *Saldo pendiente contra entrega:* ${formatCOP(saldo)}\n` +
+        (pedido.notas ? `• *Notas:* "${pedido.notas}"\n` : '') +
+        `\n(Puedes realizar la transferencia del saldo a nuestra cuenta Nequi/Daviplata o cancelar en efectivo al recibir).\n` +
+        `\n¡Ya estamos organizando todo con mucho cariño para que quede delicioso! ✨`;
+
+      const [textoMensaje, setTextoMensaje] = useState(mensajePorDefecto);
+
+      const copiarAlPortapapeles = () => {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(textoMensaje).then(() => {
+            dispararToast("¡Mensaje personalizado copiado al portapapeles!");
+          }).catch(() => fallbackCopiar());
+        } else {
+          fallbackCopiar();
+        }
+      };
+
+      const fallbackCopiar = () => {
+        const ta = document.createElement("textarea");
+        ta.value = textoMensaje;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        dispararToast("¡Mensaje copiado al portapapeles!");
+      };
+
+      const abrirWhatsAppDirecto = () => {
+        const telLimpio = pedido.telefono ? pedido.telefono.replace(/\D/g, '') : '';
+        if (telLimpio.length >= 10) {
+          const url = `https://wa.me/57${telLimpio.startsWith('57') ? telLimpio : telLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+          onCerrar();
+        } else {
+          copiarAlPortapapeles();
+          alert("El cliente no tiene un teléfono móvil válido registrado. El texto ha sido copiado para que lo pegues manualmente.");
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full uppercase flex items-center space-x-1 inline-flex">
+                  <Icons.WhatsApp />
+                  <span>Editor de Mensaje al Cliente</span>
+                </span>
+                <h3 className="font-serif-brand font-bold text-xl text-stone-900 mt-1">Confirmación: {pedido.cliente}</h3>
+              </div>
+              <button onClick={onCerrar} className="text-stone-400 hover:text-stone-600 font-bold text-xl">&times;</button>
+            </div>
+
+            <p className="text-xs text-stone-500 mt-1">
+              Edita y personaliza el texto libremente antes de enviarlo. Puedes agregar cuentas bancarias o notas especiales.
+            </p>
+
+            <div className="mt-4">
+              <label className="font-bold text-stone-700 text-xs block mb-1">Cuerpo del Mensaje (WhatsApp):</label>
+              <textarea
+                rows="9"
+                value={textoMensaje}
+                onChange={e => setTextoMensaje(e.target.value)}
+                className="w-full border border-stone-300 rounded-2xl p-3 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono bg-stone-50/50 leading-relaxed"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-100 mt-4">
+              <button
+                type="button"
+                onClick={copiarAlPortapapeles}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition"
+              >
+                📋 Copiar Texto
+              </button>
+
+              <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  className="px-4 py-2 text-xs font-bold text-stone-500 hover:bg-stone-100 rounded-xl transition"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={abrirWhatsAppDirecto}
+                  className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition flex items-center space-x-2"
+                >
+                  <Icons.WhatsApp />
+                  <span>Enviar por WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ModalPaseCocina({ pedido, recetas, insumos, onCerrar, onConfirmar }) {
+      const analisisInsumos = useMemo(() => {
+        const total = {};
+        (pedido.items || []).forEach(it => {
+          const rec = (recetas || []).find(r => r.id === it.recetaId);
+          if (rec) {
+            (rec.ingredientes || []).forEach(ing => {
+              const req = ing.cantidad * it.cantidad;
+              total[ing.insumoId] = (total[ing.insumoId] || 0) + req;
+            });
+          }
+        });
+
+        return Object.keys(total).map(id => {
+          const ins = (insumos || []).find(i => i.id === id) || { nombre: 'Insumo', unidad: '', stockActual: 0 };
+          const necesario = total[id];
+          const falta = Math.max(0, necesario - ins.stockActual);
+          return { ...ins, necesario, falta, suficiente: ins.stockActual >= necesario };
+        });
+      }, [pedido, recetas, insumos]);
+
+      const hayFaltantes = analisisInsumos.some(i => !i.suficiente);
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full uppercase">Control Previo de Bodega</span>
+                <h3 className="font-serif-brand font-bold text-xl text-stone-900 mt-1">Pase a Cocina: {pedido.cliente}</h3>
+              </div>
+              <button onClick={onCerrar} className="text-stone-400 hover:text-stone-600 font-bold text-lg">&times;</button>
+            </div>
+
+            <p className="text-xs text-stone-500 mt-1">Al confirmar, se descontará automáticamente el stock requerido de tus materias primas.</p>
+
+            <div className="mt-4 border border-stone-200 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-stone-50 text-stone-500 font-bold border-b border-stone-200">
+                  <tr>
+                    <th className="p-2.5">Insumo</th>
+                    <th className="p-2.5 text-center">Requerido</th>
+                    <th className="p-2.5 text-center">En Bodega</th>
+                    <th className="p-2.5 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {analisisInsumos.map(item => (
+                    <tr key={item.id} className={item.suficiente ? '' : 'bg-rose-50/60'}>
+                      <td className="p-2.5 font-medium text-stone-800">{item.nombre}</td>
+                      <td className="p-2.5 text-center font-bold">{item.necesario} {item.unidad}</td>
+                      <td className="p-2.5 text-center text-stone-600">{item.stockActual} {item.unidad}</td>
+                      <td className="p-2.5 text-right font-bold">
+                        {item.suficiente ? <span className="text-emerald-700">✅ OK</span> : <span className="text-rose-600">Falta {item.falta} {item.unidad}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {hayFaltantes ? (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start space-x-2">
+                <Icons.Alert />
+                <div>
+                  <strong className="block font-bold">Insumos insuficientes:</strong>
+                  Puedes iniciar la preparación igualmente si compraste insumos hoy sin registrar, pero tu stock quedará en 0.
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center space-x-2">
+                <Icons.Check />
+                <span>¡Tienes todos los insumos disponibles en bodega para este encargo!</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-3 pt-5 border-t border-stone-100 mt-4">
+              <button onClick={onCerrar} className="px-4 py-2.5 text-xs font-bold text-stone-500 hover:bg-stone-100 rounded-xl">Volver</button>
+              <button onClick={onConfirmar} className="px-5 py-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md">
+                Confirmar y Descontar de Bodega
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 3. PREPARACIÓN & COCINA (DOBLE VISTA: Mesa de Trabajo vs Abastecimiento)
+    // =========================================================================
+    function CocinaView({ pedidos, recetas, insumos, dispararToast }) {
+      const [vistaCocina, setVistaCocina] = useState("mesa");
+      const [incluirPendientes, setIncluirPendientes] = useState(true);
+
+      const pedidosEnCocina = (pedidos || []).filter(p => p.estado === 'en_preparacion');
+      const pedidosPendientes = (pedidos || []).filter(p => p.estado === 'pendiente');
+
+      const pedidosParaAbastecimiento = useMemo(() => {
+        return incluirPendientes ? [...pedidosEnCocina, ...pedidosPendientes] : pedidosEnCocina;
+      }, [pedidosEnCocina, pedidosPendientes, incluirPendientes]);
+
+      const insumosRequeridosConsolidados = useMemo(() => {
+        const total = {};
+        pedidosParaAbastecimiento.forEach(p => {
+          (p.items || []).forEach(it => {
+            const rec = (recetas || []).find(r => r.id === it.recetaId);
+            if (rec) {
+              (rec.ingredientes || []).forEach(ing => {
+                total[ing.insumoId] = (total[ing.insumoId] || 0) + (ing.cantidad * it.cantidad);
+              });
+            }
+          });
+        });
+
+        return Object.keys(total).map(id => {
+          const ins = (insumos || []).find(i => i.id === id) || {
+            nombre: 'Insumo', unidad: '', stockActual: 0,
+            presentacionNombre: 'Unidad', presentacionCantidad: 1, precioPresentacion: 0
+          };
+          const totalReq = total[id];
+          const stockActual = ins.stockActual || 0;
+          const falta = Math.max(0, totalReq - stockActual);
+
+          const presCant = ins.presentacionCantidad > 0 ? ins.presentacionCantidad : 1;
+          const paquetesAComprar = falta > 0 ? Math.ceil(falta / presCant) : 0;
+          const totalComprado = paquetesAComprar * presCant;
+          const sobranteEnBodega = totalComprado > 0 ? totalComprado - falta : 0;
+          const costoEstimadoCompra = paquetesAComprar * (ins.precioPresentacion || 0);
+
+          return { ...ins, totalReq, stockActual, falta, paquetesAComprar, sobranteEnBodega, costoEstimadoCompra };
+        });
+      }, [pedidosParaAbastecimiento, recetas, insumos]);
+
+      const insumosFaltantes = insumosRequeridosConsolidados.filter(i => i.falta > 0);
+      const totalPresupuestoCompras = insumosFaltantes.reduce((sum, i) => sum + i.costoEstimadoCompra, 0);
+
+      const generarTextoWhatsApp = () => {
+        const fecha = new Date().toLocaleDateString('es-CO');
+        let txt = `🧁 *LISTA DE COMPRAS - GASTROFLOW*\n`;
+        txt += `📅 *Fecha:* ${fecha}\n`;
+        txt += `🎯 *Encargos a Producir:* ${pedidosParaAbastecimiento.length} pedidos activos\n\n`;
+
+        if (insumosFaltantes.length === 0) {
+          txt += `✅ *¡Buenas noticias!* Dispones de todos los insumos necesarios en bodega.\n`;
+        } else {
+          txt += `🛒 *INSUMOS A COMPRAR (Ajustado a empaques reales):*\n`;
+          insumosFaltantes.forEach(i => {
+            txt += `\n• *${i.nombre}*\n`;
+            txt += `  - Requerido para cocina: ${i.totalReq} ${i.unidad} (Faltante: ${i.falta} ${i.unidad})\n`;
+            txt += `  - 👉 *Comprar:* ${i.paquetesAComprar}x [${i.presentacionNombre}] (~${formatCOP(i.costoEstimadoCompra)})\n`;
+            if (i.sobranteEnBodega > 0) {
+              txt += `  - (Quedarán ~${i.sobranteEnBodega} ${i.unidad} de reserva en bodega)\n`;
+            }
+          });
+          txt += `\n💰 *Presupuesto Total Estimado:* ${formatCOP(totalPresupuestoCompras)}\n`;
+        }
+
+        txt += `\n---\n_Generado automáticamente desde GastroFlow Artisan_`;
+        return txt;
+      };
+
+      const copiarAlPortapapeles = () => {
+        const texto = generarTextoWhatsApp();
+        const fallbackCopiar = () => {
+          const ta = document.createElement("textarea");
+          ta.value = texto;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          dispararToast("¡Lista de compras copiada al portapapeles!");
+        };
+
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(texto)
+            .then(() => dispararToast("¡Lista de compras copiada al portapapeles!"))
+            .catch(() => fallbackCopiar());
+        } else {
+          fallbackCopiar();
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif-brand font-bold text-stone-900">Mesa de Preparación & Cocina</h2>
+              <p className="text-xs text-stone-500">Planificador de producción por tanda y compras consolidadas para WhatsApp.</p>
+            </div>
+
+            <div className="flex items-center space-x-1 bg-stone-100 p-1 rounded-xl">
+              <button
+                onClick={() => setVistaCocina("mesa")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                  vistaCocina === "mesa" ? "bg-white text-stone-900 shadow-xs" : "text-stone-500"
+                }`}
+              >
+                <Icons.Scale />
+                <span>Mesa de Trabajo (Por Tanda)</span>
+              </button>
+              <button
+                onClick={() => setVistaCocina("compras")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                  vistaCocina === "compras" ? "bg-white text-stone-900 shadow-xs" : "text-stone-500"
+                }`}
+              >
+                <Icons.Box />
+                <span>Abastecimiento & Lista Compras</span>
+              </button>
+            </div>
+          </div>
+
+          {/* VISTA 1: MESA DE TRABAJO (POR TANDA INDIVIDUAL) */}
+          {vistaCocina === "mesa" && (
+            <div className="space-y-6">
+              <div className="bg-amber-50/60 border border-amber-200/80 p-4 rounded-2xl flex items-center justify-between text-xs">
+                <div>
+                  <strong className="text-amber-900 font-bold block text-sm">Pesaje frente a la Balanza</strong>
+                  <p className="text-stone-600 mt-0.5">
+                    Aquí ves lo que lleva específicamente cada pedido individual para hornearlo sin mezclar ingredientes de otros lotes.
+                  </p>
+                </div>
+                <span className="text-amber-800 font-extrabold bg-amber-100 px-3 py-1 rounded-full">
+                  {pedidosEnCocina.length} pedidos en preparación
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {pedidosEnCocina.map(p => (
+                  <div key={p.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs space-y-4">
+                    <div className="flex items-start justify-between pb-3 border-b border-stone-100">
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full uppercase">
+                          En Mesa de Trabajo
+                        </span>
+                        <h3 className="text-base font-bold text-stone-900 mt-1">{p.cliente} ({p.id})</h3>
+                        <p className="text-xs text-stone-500">Entrega: {p.fechaEntrega} a las {p.horaEntrega}</p>
+                      </div>
+                      <span className="text-xs font-bold text-stone-700">{(p.items || []).length} receta(s)</span>
+                    </div>
+
+                    {(p.items || []).map((it, idx) => {
+                      const rec = (recetas || []).find(r => r.id === it.recetaId);
+                      return (
+                        <div key={idx} className="bg-stone-50 rounded-xl p-3 border border-stone-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <strong className="text-stone-800 text-xs">{it.cantidad}x {rec?.nombre || 'Producto'}</strong>
+                            <span className="text-[10px] text-stone-400 font-semibold">{rec?.tiempoMinutos || 0} mins</span>
+                          </div>
+
+                          <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-stone-100/60 text-stone-500 font-bold">
+                                <tr>
+                                  <th className="p-2">Ingrediente para este tazón</th>
+                                  <th className="p-2 text-right">Peso / Cantidad</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-stone-100">
+                                {(rec?.ingredientes || []).map((ing, iIdx) => {
+                                  const ins = (insumos || []).find(i => i.id === ing.insumoId);
+                                  const cantidadLote = ing.cantidad * it.cantidad;
+                                  return (
+                                    <tr key={iIdx}>
+                                      <td className="p-2 text-stone-700">{ins?.nombre || 'Insumo'}</td>
+                                      <td className="p-2 text-right font-black text-amber-900 text-sm">
+                                        {cantidadLote} {ins?.unidad}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {p.notas && (
+                      <p className="text-xs text-amber-900 bg-amber-50 p-2.5 rounded-xl italic border border-amber-100">
+                        "{p.notas}"
+                      </p>
+                    )}
+                  </div>
+                ))}
+
+                {pedidosEnCocina.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-stone-400 bg-white rounded-2xl border border-stone-200">
+                    <Icons.ChefHat />
+                    <p className="mt-2 text-sm font-semibold">No tienes pedidos en preparación activa.</p>
+                    <p className="text-xs text-stone-400 mt-0.5">Ve a la Libreta de Encargos y pulsa 'Validar & Pasar a Cocina' en el pedido que vayas a preparar.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* VISTA 2: ABASTECIMIENTO GLOBAL */}
+          {vistaCocina === "compras" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200">
+                <label className="text-xs text-stone-700 flex items-center space-x-2 cursor-pointer font-bold">
+                  <input
+                    type="checkbox"
+                    checked={incluirPendientes}
+                    onChange={e => setIncluirPendientes(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>Incluir pedidos en estado 'Pendiente' (Para surtido previo)</span>
+                </label>
+
+                <button
+                  onClick={copiarAlPortapapeles}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center space-x-2"
+                >
+                  <Icons.WhatsApp />
+                  <span>Copiar Lista para WhatsApp</span>
+                </button>
+              </div>
+
+              {insumosFaltantes.length > 0 && (
+                <div className="bg-gradient-to-r from-emerald-900 to-stone-900 text-white p-5 rounded-2xl shadow-md flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Presupuesto Requerido</span>
+                    <p className="text-xs text-stone-300 mt-0.5">Dinero total para comprar los paquetes comerciales faltantes:</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-stone-400 block font-semibold">{insumosFaltantes.length} productos</span>
+                    <span className="text-2xl font-black text-emerald-400">{formatCOP(totalPresupuestoCompras)}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                <div className="p-4 bg-stone-50/80 border-b border-stone-200 flex items-center justify-between">
+                  <h3 className="font-bold text-stone-800 text-sm">Consolidado Total de Materia Prima vs Bodega</h3>
+                  <span className="text-xs font-bold text-stone-600 bg-white px-3 py-1 rounded-full border border-stone-200">
+                    {insumosFaltantes.length} faltantes
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-stone-100/70 text-stone-600 font-bold border-b border-stone-200">
+                      <tr>
+                        <th className="p-3">Insumo</th>
+                        <th className="p-3 text-center">Consumo Total</th>
+                        <th className="p-3 text-center">En Bodega</th>
+                        <th className="p-3 text-center">Falta Neta</th>
+                        <th className="p-3 text-center">Presentación Comercial</th>
+                        <th className="p-3 text-right">👉 Comprar Exacto</th>
+                        <th className="p-3 text-right">Sobrante Estimado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {insumosRequeridosConsolidados.map(item => (
+                        <tr key={item.id} className={item.falta > 0 ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-stone-50'}>
+                          <td className="p-3 font-semibold text-stone-900">{item.nombre}</td>
+                          <td className="p-3 text-center font-bold text-stone-800">{item.totalReq} {item.unidad}</td>
+                          <td className="p-3 text-center text-stone-500">{item.stockActual} {item.unidad}</td>
+                          <td className="p-3 text-center font-bold">
+                            {item.falta > 0 ? <span className="text-rose-600">{item.falta} {item.unidad}</span> : <span className="text-emerald-600">Suficiente</span>}
+                          </td>
+                          <td className="p-3 text-center text-stone-600">
+                            {item.presentacionNombre} ({item.presentacionCantidad} {item.unidad})
+                          </td>
+                          <td className="p-3 text-right font-black">
+                            {item.paquetesAComprar > 0 ? (
+                              <span className="text-amber-800 bg-amber-100 px-2 py-1 rounded-md">
+                                {item.paquetesAComprar}x {item.presentacionNombre}
+                              </span>
+                            ) : (
+                              <span className="text-stone-400 font-normal">0</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right text-stone-500">
+                            {item.sobranteEnBodega > 0 ? `+${item.sobranteEnBodega} ${item.unidad}` : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 4. BODEGA E INSUMOS (EDICIÓN COMPLETA + ACCIONES)
+    // =========================================================================
+    function InventarioBodegaView({ insumos, setInsumos, historialMermas, setHistorialMermas, insumoParaComprar, setInsumoParaComprar, dispararToast }) {
+      const [modalCompra, setModalCompra] = useState(null);
+      const [modalMerma, setModalMerma] = useState(null);
+      const [modalNuevoInsumo, setModalNuevoInsumo] = useState(false);
+      const [insumoParaEditar, setInsumoParaEditar] = useState(null);
+      const [filtro, setFiltro] = useState("");
+
+      useEffect(() => {
+        if (insumoParaComprar) {
+          setModalCompra(insumoParaComprar);
+          setInsumoParaComprar(null);
+        }
+      }, [insumoParaComprar, setInsumoParaComprar]);
+
+      const insumosFiltrados = (insumos || []).filter(i => (i.nombre || "").toLowerCase().includes((filtro || "").toLowerCase()));
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif-brand font-bold text-stone-900">Bodega e Insumos</h2>
+              <p className="text-xs text-stone-500">Materia prima, empaques comerciales, precios de compra y registro de mermas.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="Buscar insumo..."
+                value={filtro}
+                onChange={e => setFiltro(e.target.value)}
+                className="bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none w-44 sm:w-60"
+              />
+              <button
+                onClick={() => setModalNuevoInsumo(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center space-x-1"
+              >
+                <span>+ Crear Insumo</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-stone-50 text-stone-600 font-bold border-b border-stone-200">
+                  <tr>
+                    <th className="p-3">Insumo / Marca</th>
+                    <th className="p-3 text-center">Unidad Base</th>
+                    <th className="p-3 text-center">Stock Actual</th>
+                    <th className="p-3 text-center">Stock Mínimo</th>
+                    <th className="p-3 text-center">Presentación Comercial</th>
+                    <th className="p-3 text-right">Costo Base</th>
+                    <th className="p-3 text-center">Estado</th>
+                    <th className="p-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {insumosFiltrados.map(item => {
+                    const esCritico = item.stockActual <= item.stockMinimo;
+                    return (
+                      <tr key={item.id} className={esCritico ? 'bg-rose-50/40 hover:bg-rose-50' : 'hover:bg-stone-50'}>
+                        <td className="p-3">
+                          <p className="font-bold text-stone-900">{item.nombre}</p>
+                          <p className="text-[10px] text-stone-400">Prov: {item.proveedor || 'Sin proveedor'}</p>
+                        </td>
+                        <td className="p-3 text-center font-bold text-stone-700">{item.unidad}</td>
+                        <td className="p-3 text-center">
+                          <span className={`font-black ${esCritico ? 'text-rose-600' : 'text-stone-900'}`}>
+                            {item.stockActual} {item.unidad}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center text-stone-400">{item.stockMinimo} {item.unidad}</td>
+                        <td className="p-3 text-center text-stone-700">
+                          {item.presentacionNombre}
+                          <span className="block text-[10px] text-stone-400 font-semibold">{formatCOP(item.precioPresentacion)}</span>
+                        </td>
+                        <td className="p-3 text-right font-bold text-stone-800">
+                          {formatCOP(item.costoUnitario)} <span className="text-[10px] text-stone-400 font-normal">/{item.unidad}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {esCritico ? (
+                            <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">Crítico</span>
+                          ) : (
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Óptimo</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                          <button
+                            onClick={() => setInsumoParaEditar(item)}
+                            className="bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-800 font-bold px-2.5 py-1 rounded-lg text-[11px] transition inline-flex items-center space-x-1"
+                            title="Editar Datos del Insumo"
+                          >
+                            <Icons.Edit />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => setModalCompra(item)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] shadow-xs transition"
+                            title="Registrar Compra / Entrada"
+                          >
+                            + Compra
+                          </button>
+                          <button
+                            onClick={() => setModalMerma(item)}
+                            className="bg-stone-100 hover:bg-rose-100 text-stone-600 hover:text-rose-700 font-bold px-2 py-1 rounded-lg text-[11px] transition"
+                            title="Registrar Salida / Merma"
+                          >
+                            - Merma
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {insumoParaEditar && (
+            <ModalEditarInsumo
+              insumo={insumoParaEditar}
+              onCerrar={() => setInsumoParaEditar(null)}
+              onGuardar={(insumoActualizado) => {
+                setInsumos((insumos || []).map(i => i.id === insumoActualizado.id ? insumoActualizado : i));
+                setInsumoParaEditar(null);
+                dispararToast(`Insumo '${insumoActualizado.nombre}' actualizado con éxito`);
+              }}
+            />
+          )}
+
+          {modalCompra && (
+            <ModalRegistroCompra
+              insumo={modalCompra}
+              onCerrar={() => setModalCompra(null)}
+              onConfirmar={(paquetes, nuevoPrecioPresentacion) => {
+                const cantidadAAgregar = paquetes * modalCompra.presentacionCantidad;
+                const nuevoCostoUnitario = nuevoPrecioPresentacion / modalCompra.presentacionCantidad;
+
+                setInsumos((insumos || []).map(i => {
+                  if (i.id === modalCompra.id) {
+                    return {
+                      ...i,
+                      stockActual: i.stockActual + cantidadAAgregar,
+                      precioPresentacion: nuevoPrecioPresentacion,
+                      costoUnitario: nuevoCostoUnitario
+                    };
+                  }
+                  return i;
+                }));
+
+                setModalCompra(null);
+                dispararToast(`Compra registrada: +${cantidadAAgregar} ${modalCompra.unidad} de ${modalCompra.nombre}`);
+              }}
+            />
+          )}
+
+          {modalMerma && (
+            <ModalRegistroMerma
+              insumo={modalMerma}
+              onCerrar={() => setModalMerma(null)}
+              onConfirmar={(cantidadMerma, motivo) => {
+                const costoPerdido = cantidadMerma * modalMerma.costoUnitario;
+
+                setInsumos((insumos || []).map(i => {
+                  if (i.id === modalMerma.id) {
+                    return { ...i, stockActual: Math.max(0, i.stockActual - cantidadMerma) };
+                  }
+                  return i;
+                }));
+
+                setHistorialMermas([
+                  {
+                    id: `mrm-${Date.now()}`,
+                    fecha: new Date().toISOString(),
+                    insumoNombre: modalMerma.nombre,
+                    cantidad: cantidadMerma,
+                    unidad: modalMerma.unidad,
+                    costoPerdidoCOP: costoPerdido,
+                    motivo
+                  },
+                  ...(historialMermas || [])
+                ]);
+
+                setModalMerma(null);
+                dispararToast(`Merma registrada: -${cantidadMerma} ${modalMerma.unidad} (${formatCOP(costoPerdido)})`);
+              }}
+            />
+          )}
+
+          {modalNuevoInsumo && (
+            <ModalEditarInsumo
+              insumo={null}
+              onCerrar={() => setModalNuevoInsumo(false)}
+              onGuardar={(nuevoInsumo) => {
+                setInsumos([...(insumos || []), nuevoInsumo]);
+                setModalNuevoInsumo(false);
+                dispararToast(`Insumo '${nuevoInsumo.nombre}' creado en bodega`);
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function ModalEditarInsumo({ insumo, onCerrar, onGuardar }) {
+      const esEdicion = !!insumo;
+
+      const [nombre, setNombre] = useState(insumo?.nombre || "");
+      const [unidad, setUnidad] = useState(insumo?.unidad || "g");
+      const [stockActual, setStockActual] = useState(insumo?.stockActual ?? 1000);
+      const [stockMinimo, setStockMinimo] = useState(insumo?.stockMinimo ?? 500);
+      const [presentacionNombre, setPresentacionNombre] = useState(insumo?.presentacionNombre || "Bolsa 1 kg");
+      const [presentacionCantidad, setPresentacionCantidad] = useState(insumo?.presentacionCantidad ?? 1000);
+      const [precioPresentacion, setPrecioPresentacion] = useState(insumo?.precioPresentacion ?? 5000);
+      const [proveedor, setProveedor] = useState(insumo?.proveedor || "");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const presCant = Number(presentacionCantidad) > 0 ? Number(presentacionCantidad) : 1;
+        const costoUnitario = Number(precioPresentacion) / presCant;
+
+        const resultado = {
+          id: insumo?.id || `ins-${Date.now()}`,
+          nombre,
+          unidad,
+          stockActual: Number(stockActual),
+          stockMinimo: Number(stockMinimo),
+          presentacionNombre,
+          presentacionCantidad: presCant,
+          precioPresentacion: Number(precioPresentacion),
+          costoUnitario,
+          proveedor
+        };
+
+        onGuardar(resultado);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200">
+            <h3 className="font-serif-brand font-bold text-xl text-stone-900">
+              {esEdicion ? `Editar Insumo: ${insumo.nombre}` : 'Crear Insumo en Bodega'}
+            </h3>
+            <p className="text-xs text-stone-500 mt-0.5">Establece la unidad base y cómo se compra en proveedor.</p>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Nombre del Insumo / Marca *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Arequipe La Lechera Repostero"
+                  value={nombre}
+                  onChange={e => setNombre(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Unidad Base</label>
+                  <select
+                    value={unidad}
+                    onChange={e => setUnidad(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 outline-none bg-white font-bold"
+                  >
+                    <option value="g">Gramos (g)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="und">Unidad (und)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Stock Actual</label>
+                  <input
+                    type="number"
+                    value={stockActual}
+                    onChange={e => setStockActual(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Stock Mínimo</label>
+                  <input
+                    type="number"
+                    value={stockMinimo}
+                    onChange={e => setStockMinimo(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-200/60 space-y-2">
+                <span className="font-bold text-amber-900 block">Presentación Comercial (Supermercado / Distribuidor)</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-stone-600 block mb-0.5">Nombre Empaque</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Pote 1.000 g"
+                      value={presentacionNombre}
+                      onChange={e => setPresentacionNombre(e.target.value)}
+                      className="w-full border border-stone-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-stone-600 block mb-0.5">Contenido ({unidad})</label>
+                    <input
+                      type="number"
+                      value={presentacionCantidad}
+                      onChange={e => setPresentacionCantidad(e.target.value)}
+                      className="w-full border border-stone-300 rounded-lg p-2 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-stone-600 block mb-0.5">Precio de Compra por Empaque ($ COP)</label>
+                  <input
+                    type="number"
+                    value={precioPresentacion}
+                    onChange={e => setPrecioPresentacion(e.target.value)}
+                    className="w-full border border-stone-300 rounded-lg p-2 bg-white font-bold text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Proveedor Habitual</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Makro, Éxito, Central Mayorista"
+                  value={proveedor}
+                  onChange={e => setProveedor(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  className="px-4 py-2 font-bold text-stone-500 hover:bg-stone-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md"
+                >
+                  {esEdicion ? 'Guardar Cambios' : 'Crear Insumo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function ModalRegistroCompra({ insumo, onCerrar, onConfirmar }) {
+      const [paquetes, setPaquetes] = useState(1);
+      const [precioEmpaque, setPrecioEmpaque] = useState(insumo?.precioPresentacion || 0);
+
+      const totalUnidades = paquetes * (insumo?.presentacionCantidad || 1);
+      const totalPagar = paquetes * precioEmpaque;
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200">
+            <h3 className="font-serif-brand font-bold text-lg text-stone-900">Registrar Entrada de Compra</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Ingresa los paquetes adquiridos para: <strong className="text-stone-800">{insumo?.nombre}</strong></p>
+
+            <div className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">
+                  Empaque: {insumo?.presentacionNombre} ({insumo?.presentacionCantidad} {insumo?.unidad})
+                </label>
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="number"
+                    min="1"
+                    value={paquetes}
+                    onChange={e => setPaquetes(Math.max(1, Number(e.target.value)))}
+                    className="w-24 border border-stone-300 rounded-xl p-2.5 text-center font-bold text-base"
+                  />
+                  <span className="text-stone-500 text-xs">= +{totalUnidades} {insumo?.unidad} en bodega</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Precio Pagado por Empaque (COP)</label>
+                <input
+                  type="number"
+                  value={precioEmpaque}
+                  onChange={e => setPrecioEmpaque(Number(e.target.value))}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-stone-900"
+                />
+              </div>
+
+              <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 flex items-center justify-between text-xs">
+                <span className="text-stone-500 font-semibold">Total a Cancelar:</span>
+                <span className="font-black text-stone-900 text-sm">{formatCOP(totalPagar)}</span>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-stone-100">
+                <button onClick={onCerrar} className="px-3 py-2 font-bold text-stone-500 hover:bg-stone-100 rounded-xl">Cancelar</button>
+                <button
+                  onClick={() => onConfirmar(paquetes, precioEmpaque)}
+                  className="px-4 py-2 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md"
+                >
+                  Registrar Entrada
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ModalRegistroMerma({ insumo, onCerrar, onConfirmar }) {
+      const [cantidad, setCantidad] = useState(100);
+      const [motivo, setMotivo] = useState("Vencimiento o caducidad");
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200">
+            <h3 className="font-serif-brand font-bold text-lg text-rose-900">Registrar Salida por Merma</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Descuenta insumos dañados de: <strong className="text-stone-800">{insumo?.nombre}</strong></p>
+
+            <div className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Cantidad a Dar de Baja ({insumo?.unidad})</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={insumo?.stockActual}
+                  value={cantidad}
+                  onChange={e => setCantidad(Number(e.target.value))}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-rose-700"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Motivo de la Merma</label>
+                <select
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 bg-white font-medium"
+                >
+                  <option value="Vencimiento o caducidad">Vencimiento o caducidad</option>
+                  <option value="Deterioro por humedad / calor">Deterioro por humedad / calor</option>
+                  <option value="Error en preparación / quemado">Error en preparación / quemado</option>
+                  <option value="Rotura de empaque">Rotura de empaque</option>
+                  <option value="Ajuste de inventario físico">Ajuste de inventario físico</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-stone-100">
+                <button onClick={onCerrar} className="px-3 py-2 font-bold text-stone-500 hover:bg-stone-100 rounded-xl">Cancelar</button>
+                <button
+                  onClick={() => onConfirmar(cantidad, motivo)}
+                  className="px-4 py-2 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-md"
+                >
+                  Descontar Merma
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 5. RECETARIO & COSTEO (EDICIÓN COMPLETA + ESCALADOR)
+    // =========================================================================
+    function RecetasView({ recetas, setRecetas, insumos, configuracion, dispararToast }) {
+      const [recetaAbierta, setRecetaAbierta] = useState(recetas[0]?.id || null);
+      const [escala, setEscala] = useState(1);
+      const [recetaParaEditar, setRecetaParaEditar] = useState(null);
+      const [modalNuevaReceta, setModalNuevaReceta] = useState(false);
+
+      const calcularCostoDetallado = (receta, factorEscala = 1) => {
+        const costoIngredientes = (receta.ingredientes || []).reduce((sum, ing) => {
+          const ins = (insumos || []).find(i => i.id === ing.insumoId);
+          return sum + (ins ? ins.costoUnitario * (ing.cantidad * factorEscala) : 0);
+        }, 0);
+
+        const costoMerma = costoIngredientes * ((receta.mermaPorcentaje || 0) / 100);
+        const subtotalMateriaPrima = costoIngredientes + costoMerma;
+
+        const costoEnergia = (receta.procesosEquipos || []).reduce((sum, eq) => {
+          const kwhConsumidos = (eq.potenciaWatts / 1000) * (((eq.minutosUso || 0) * factorEscala) / 60);
+          return sum + (kwhConsumidos * (configuracion?.costoKwhCOP || 820));
+        }, 0);
+
+        const horasTrabajo = (((receta.tiempoMinutos || 0) * factorEscala) / 60);
+        const costoManoObra = horasTrabajo * (configuracion?.salarioDeseadoHoraCOP || 18000);
+
+        const costoCIF = (subtotalMateriaPrima + costoEnergia) * ((configuracion?.cifPorcentaje || 10) / 100);
+        const costoTotalProduccion = subtotalMateriaPrima + costoEnergia + costoManoObra + costoCIF;
+
+        const precioSugerido = (receta.precioVentaSugerido || 0) * factorEscala;
+        const gananciaNeta = precioSugerido - costoTotalProduccion;
+        const margenPorcentual = precioSugerido > 0 ? (gananciaNeta / precioSugerido) * 100 : 0;
+
+        return {
+          costoIngredientes,
+          costoMerma,
+          subtotalMateriaPrima,
+          costoEnergia,
+          costoManoObra,
+          costoCIF,
+          costoTotalProduccion,
+          precioSugerido,
+          gananciaNeta,
+          margenPorcentual,
+          porcionesTotales: Math.round((receta.porcionesRendimiento || 1) * factorEscala)
+        };
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif-brand font-bold text-stone-900">Recetario Estándar & Costeo Real</h2>
+              <p className="text-xs text-stone-500">
+                Tarifa eléctrica (${configuracion?.costoKwhCOP || 820}/kWh) y mano de obra (${configuracion?.salarioDeseadoHoraCOP || 18000}/h).
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1 bg-white px-3 py-1.5 rounded-2xl border border-stone-200">
+                <span className="text-xs font-bold text-stone-500 mr-1">Escala Balanza:</span>
+                {[1, 1.5, 2, 3].map(fact => (
+                  <button
+                    key={fact}
+                    onClick={() => setEscala(fact)}
+                    className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                      escala === fact ? 'bg-amber-600 text-white shadow-xs' : 'text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    x{fact}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setModalNuevaReceta(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center space-x-1"
+              >
+                <span>+ Nueva Receta</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {(recetas || []).map(r => {
+              const analisis = calcularCostoDetallado(r, escala);
+              const estaAbierta = recetaAbierta === r.id;
+
+              return (
+                <div key={r.id} className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden transition-all">
+                  <div
+                    onClick={() => setRecetaAbierta(estaAbierta ? null : r.id)}
+                    className="p-5 cursor-pointer hover:bg-stone-50 flex items-center justify-between gap-4 transition select-none"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                        🍰
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-stone-900 text-base">{r.nombre}</h3>
+                        <p className="text-xs text-stone-500">
+                          {analisis.porcionesTotales} porciones {escala !== 1 && `(Escalado x${escala})`} • {Math.round((r.tiempoMinutos || 0) * escala)} mins
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4 sm:space-x-6">
+                      <div className="text-right hidden sm:block">
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">Costo Total</span>
+                        <span className="font-bold text-stone-800 text-sm">{formatCOP(analisis.costoTotalProduccion)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">PVP Sugerido</span>
+                        <span className="font-black text-amber-700 text-base">{formatCOP(analisis.precioSugerido)}</span>
+                      </div>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${analisis.margenPorcentual >= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {Math.round(analisis.margenPorcentual)}% Margen
+                      </span>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRecetaParaEditar(r);
+                        }}
+                        className="p-2 text-stone-400 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition"
+                        title="Editar Ficha Técnica de la Receta"
+                      >
+                        <Icons.Edit />
+                      </button>
+
+                      <span className="text-stone-400 font-bold">{estaAbierta ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+
+                  {estaAbierta && (
+                    <div className="p-6 bg-stone-50/70 border-t border-stone-200 space-y-6 text-xs">
+                      <p className="text-stone-600 italic">{r.descripcion}</p>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-stone-800 uppercase tracking-wider text-[11px]">
+                            Ingredientes para Balanza {escala !== 1 && `(Calculado para x${escala})`}
+                          </h4>
+                          {escala !== 1 && (
+                            <span className="text-[11px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                              Multiplicador x{escala} activo
+                            </span>
+                          )}
+                        </div>
+                        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                          <table className="w-full text-left">
+                            <thead className="bg-stone-100/70 text-stone-500 font-bold border-b border-stone-200">
+                              <tr>
+                                <th className="p-2.5">Ingrediente</th>
+                                <th className="p-2.5 text-center">Peso Exacto a Medir</th>
+                                <th className="p-2.5 text-right">Costo Insumo</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-stone-100">
+                              {(r.ingredientes || []).map((ing, i) => {
+                                const ins = (insumos || []).find(item => item.id === ing.insumoId);
+                                const cantidadEscalada = ing.cantidad * escala;
+                                const costo = ins ? ins.costoUnitario * cantidadEscalada : 0;
+                                return (
+                                  <tr key={i}>
+                                    <td className="p-2.5 font-medium text-stone-800">{ins?.nombre || 'Insumo'}</td>
+                                    <td className="p-2.5 text-center font-black text-amber-900 text-sm">
+                                      {cantidadEscalada} {ins?.unidad}
+                                    </td>
+                                    <td className="p-2.5 text-right font-bold text-stone-800">{formatCOP(costo)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-stone-200 space-y-2">
+                          <h4 className="font-bold text-stone-800 uppercase tracking-wider text-[11px]">Energía & Tiempo de Cocina</h4>
+                          <div className="space-y-1.5 text-stone-600">
+                            {(r.procesosEquipos || []).map((eq, idx) => (
+                              <div key={idx} className="flex justify-between">
+                                <span>• {eq.nombre} ({Math.round((eq.minutosUso || 0) * escala)}m):</span>
+                                <span className="font-medium">
+                                  {formatCOP(((eq.potenciaWatts / 1000) * (((eq.minutosUso || 0) * escala) / 60)) * (configuracion?.costoKwhCOP || 820))}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between pt-1 border-t border-stone-100">
+                              <span>Mano de Obra ({Math.round((r.tiempoMinutos || 0) * escala)} min @ ${configuracion?.salarioDeseadoHoraCOP || 18000}/h):</span>
+                              <span className="font-bold text-stone-900">{formatCOP(analisis.costoManoObra)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-2">
+                          <h4 className="font-bold text-amber-900 uppercase tracking-wider text-[11px]">Rentabilidad del Lote</h4>
+                          <div className="space-y-1 text-stone-700">
+                            <div className="flex justify-between">
+                              <span>Materia Prima + Merma ({r.mermaPorcentaje}%):</span>
+                              <span>{formatCOP(analisis.subtotalMateriaPrima)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Costos Indirectos CIF ({configuracion?.cifPorcentaje || 10}%):</span>
+                              <span>{formatCOP(analisis.costoCIF)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-amber-200">
+                              <span>Costo Total Producción:</span>
+                              <span>{formatCOP(analisis.costoTotalProduccion)}</span>
+                            </div>
+                            <div className="flex justify-between font-black text-emerald-800 text-sm pt-1">
+                              <span>Ganancia Neta Real:</span>
+                              <span>{formatCOP(analisis.gananciaNeta)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {(recetaParaEditar || modalNuevaReceta) && (
+            <ModalEditarReceta
+              receta={recetaParaEditar}
+              insumos={insumos}
+              onCerrar={() => {
+                setRecetaParaEditar(null);
+                setModalNuevaReceta(false);
+              }}
+              onGuardar={(recetaActualizada) => {
+                if (recetaParaEditar) {
+                  setRecetas((recetas || []).map(r => r.id === recetaActualizada.id ? recetaActualizada : r));
+                  dispararToast(`Receta '${recetaActualizada.nombre}' actualizada`);
+                } else {
+                  setRecetas([...(recetas || []), recetaActualizada]);
+                  dispararToast(`Receta '${recetaActualizada.nombre}' creada`);
+                }
+                setRecetaParaEditar(null);
+                setModalNuevaReceta(false);
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function ModalEditarReceta({ receta, insumos, onCerrar, onGuardar }) {
+      const esEdicion = !!receta;
+
+      const [nombre, setNombre] = useState(receta?.nombre || "");
+      const [descripcion, setDescripcion] = useState(receta?.descripcion || "");
+      const [porcionesRendimiento, setPorcionesRendimiento] = useState(receta?.porcionesRendimiento || 10);
+      const [tiempoMinutos, setTiempoMinutos] = useState(receta?.tiempoMinutos || 60);
+      const [mermaPorcentaje, setMermaPorcentaje] = useState(receta?.mermaPorcentaje || 3);
+      const [precioVentaSugerido, setPrecioVentaSugerido] = useState(receta?.precioVentaSugerido || 80000);
+
+      const [ingredientes, setIngredientes] = useState(receta?.ingredientes ? [...receta.ingredientes] : [
+        { insumoId: (insumos && insumos[0]) ? insumos[0].id : "", cantidad: 100 }
+      ]);
+
+      const [procesosEquipos, setProcesosEquipos] = useState(receta?.procesosEquipos ? [...receta.procesosEquipos] : [
+        { nombre: "Horno Convector (180°C)", potenciaWatts: 2200, minutosUso: 45 }
+      ]);
+
+      const agregarIngrediente = () => {
+        setIngredientes([...ingredientes, { insumoId: (insumos && insumos[0]) ? insumos[0].id : "", cantidad: 100 }]);
+      };
+
+      const eliminarIngrediente = (index) => {
+        setIngredientes(ingredientes.filter((_, idx) => idx !== index));
+      };
+
+      const actualizarIngrediente = (index, campo, valor) => {
+        const nuevos = [...ingredientes];
+        nuevos[index] = { ...nuevos[index], [campo]: valor };
+        setIngredientes(nuevos);
+      };
+
+      const agregarEquipo = () => {
+        setProcesosEquipos([...procesosEquipos, { nombre: "Batidora Planetaria", potenciaWatts: 600, minutosUso: 20 }]);
+      };
+
+      const eliminarEquipo = (index) => {
+        setProcesosEquipos(procesosEquipos.filter((_, idx) => idx !== index));
+      };
+
+      const actualizarEquipo = (index, campo, valor) => {
+        const nuevos = [...procesosEquipos];
+        nuevos[index] = { ...nuevos[index], [campo]: valor };
+        setProcesosEquipos(nuevos);
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!nombre) return alert("Escribe el nombre de la receta");
+
+        const resultado = {
+          id: receta?.id || `rec-${Date.now()}`,
+          nombre,
+          descripcion,
+          porcionesRendimiento: Number(porcionesRendimiento),
+          tiempoMinutos: Number(tiempoMinutos),
+          mermaPorcentaje: Number(mermaPorcentaje),
+          precioVentaSugerido: Number(precioVentaSugerido),
+          ingredientes: ingredientes.map(i => ({ insumoId: i.insumoId, cantidad: Number(i.cantidad) })),
+          procesosEquipos: procesosEquipos.map(eq => ({
+            nombre: eq.nombre,
+            potenciaWatts: Number(eq.potenciaWatts),
+            minutosUso: Number(eq.minutosUso)
+          }))
+        };
+
+        onGuardar(resultado);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-stone-200 max-h-[90vh] overflow-y-auto">
+            <h3 className="font-serif-brand font-bold text-xl text-stone-900">
+              {esEdicion ? `Editar Ficha Técnica: ${receta.nombre}` : 'Crear Nueva Receta'}
+            </h3>
+            <p className="text-xs text-stone-500 mt-0.5">Define ingredientes exactos, consumo de hornos y precio sugerido.</p>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Nombre de la Receta *</label>
+                  <input
+                    type="text"
+                    required
+                    value={nombre}
+                    onChange={e => setNombre(e.target.value)}
+                    placeholder="Ej. Tarta de Frutos Rojos"
+                    className="w-full border border-stone-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">PVP Sugerido al Público ($ COP)</label>
+                  <input
+                    type="number"
+                    value={precioVentaSugerido}
+                    onChange={e => setPrecioVentaSugerido(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-amber-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Descripción Breve</label>
+                <input
+                  type="text"
+                  value={descripcion}
+                  onChange={e => setDescripcion(e.target.value)}
+                  placeholder="Detalles sobre sabor, técnica o acabado..."
+                  className="w-full border border-stone-300 rounded-xl p-2.5 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Porciones</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={porcionesRendimiento}
+                    onChange={e => setPorcionesRendimiento(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 text-center font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Tiempo (Minutos)</label>
+                  <input
+                    type="number"
+                    value={tiempoMinutos}
+                    onChange={e => setTiempoMinutos(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 text-center font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-stone-700 block mb-1">Merma Técnica (%)</label>
+                  <input
+                    type="number"
+                    value={mermaPorcentaje}
+                    onChange={e => setMermaPorcentaje(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl p-2.5 text-center font-bold text-rose-700"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-stone-800 uppercase tracking-wider text-[11px]">Ingredientes de la Receta</span>
+                  <button
+                    type="button"
+                    onClick={agregarIngrediente}
+                    className="text-amber-800 hover:text-amber-900 font-bold text-xs"
+                  >
+                    + Agregar Ingrediente
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {ingredientes.map((ing, idx) => {
+                    const insActual = (insumos || []).find(i => i.id === ing.insumoId);
+                    return (
+                      <div key={idx} className="flex items-center space-x-2">
+                        <select
+                          value={ing.insumoId}
+                          onChange={e => actualizarIngrediente(idx, "insumoId", e.target.value)}
+                          className="flex-1 border border-stone-300 rounded-xl p-2 bg-white"
+                        >
+                          {(insumos || []).map(i => (
+                            <option key={i.id} value={i.id}>{i.nombre} ({i.unidad})</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          placeholder="Cantidad"
+                          value={ing.cantidad}
+                          onChange={e => actualizarIngrediente(idx, "cantidad", e.target.value)}
+                          className="w-24 border border-stone-300 rounded-xl p-2 text-center font-bold"
+                        />
+                        <span className="text-stone-500 font-semibold w-8">{insActual?.unidad}</span>
+                        <button
+                          type="button"
+                          onClick={() => eliminarIngrediente(idx)}
+                          className="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-stone-800 uppercase tracking-wider text-[11px]">Equipos Eléctricos & Hornos</span>
+                  <button
+                    type="button"
+                    onClick={agregarEquipo}
+                    className="text-amber-800 hover:text-amber-900 font-bold text-xs"
+                  >
+                    + Agregar Equipo
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {procesosEquipos.map((eq, idx) => (
+                    <div key={idx} className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        placeholder="Nombre Equipo"
+                        value={eq.nombre}
+                        onChange={e => actualizarEquipo(idx, "nombre", e.target.value)}
+                        className="flex-1 border border-stone-300 rounded-xl p-2 bg-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Watts"
+                        value={eq.potenciaWatts}
+                        onChange={e => actualizarEquipo(idx, "potenciaWatts", e.target.value)}
+                        className="w-24 border border-stone-300 rounded-xl p-2 text-center"
+                        title="Potencia en Watts"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Minutos"
+                        value={eq.minutosUso}
+                        onChange={e => actualizarEquipo(idx, "minutosUso", e.target.value)}
+                        className="w-24 border border-stone-300 rounded-xl p-2 text-center"
+                        title="Minutos de uso"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => eliminarEquipo(idx)}
+                        className="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition"
+                      >
+                        <Icons.Trash />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  className="px-4 py-2 font-bold text-stone-500 hover:bg-stone-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md"
+                >
+                  {esEdicion ? 'Guardar Ficha Técnica' : 'Crear Receta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 6. AUDITORÍA E HISTORIAL
+    // =========================================================================
+    function AuditoriaView({ historialMermas, pedidos, recetas }) {
+      const [busquedaHistorial, setBusquedaHistorial] = useState("");
+      const [subPestana, setSubPestana] = useState("mermas");
+
+      const totalPerdidasMermas = (historialMermas || []).reduce((sum, m) => sum + (m.costoPerdidoCOP || 0), 0);
+
+      const resumenPorMotivo = useMemo(() => {
+        const mapa = {};
+        (historialMermas || []).forEach(m => {
+          mapa[m.motivo] = (mapa[m.motivo] || 0) + (m.costoPerdidoCOP || 0);
+        });
+        return Object.entries(mapa).map(([motivo, total]) => ({ motivo, total }));
+      }, [historialMermas]);
+
+      const pedidosArchivados = (pedidos || []).filter(p => p.estado === 'completado' || p.estado === 'cancelado');
+      const pedidosFiltrados = pedidosArchivados.filter(p => {
+        const txt = (busquedaHistorial || "").toLowerCase();
+        return (p.cliente || "").toLowerCase().includes(txt) || (p.telefono || "").includes(txt) || (p.id || "").toLowerCase().includes(txt);
+      });
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif-brand font-bold text-stone-900">Auditoría & Historial</h2>
+              <p className="text-xs text-stone-500">Trazabilidad de desperdicios económicos y archivo histórico de clientes.</p>
+            </div>
+
+            <div className="flex items-center space-x-1 bg-stone-100 p-1 rounded-xl">
+              <button
+                onClick={() => setSubPestana("mermas")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  subPestana === "mermas" ? "bg-white text-stone-900 shadow-xs" : "text-stone-500"
+                }`}
+              >
+                📉 Libro de Mermas
+              </button>
+              <button
+                onClick={() => setSubPestana("pedidos")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  subPestana === "pedidos" ? "bg-white text-stone-900 shadow-xs" : "text-stone-500"
+                }`}
+              >
+                📦 Clientes & Encargos Pasados
+              </button>
+            </div>
+          </div>
+
+          {subPestana === "mermas" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-rose-200/80 shadow-xs">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600">Dinero Perdido en Mermas</span>
+                  <p className="text-2xl font-black text-rose-600 mt-1">{formatCOP(totalPerdidasMermas)}</p>
+                  <span className="text-[11px] text-stone-400 font-medium">{(historialMermas || []).length} registros dados de baja</span>
+                </div>
+
+                <div className="col-span-2 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 block mb-2">Causas Principales de Merma</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {resumenPorMotivo.map((rm, idx) => (
+                      <div key={idx} className="bg-stone-50 p-2.5 rounded-xl border border-stone-100 text-xs">
+                        <strong className="text-stone-800 block truncate">{rm.motivo}</strong>
+                        <span className="font-black text-rose-600">{formatCOP(rm.total)}</span>
+                      </div>
+                    ))}
+                    {resumenPorMotivo.length === 0 && (
+                      <span className="text-xs text-stone-400">Sin registros de merma acumulados.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                <div className="p-4 bg-stone-50/80 border-b border-stone-200">
+                  <h3 className="font-bold text-stone-800 text-sm">Historial Cronológico de Mermas</h3>
+                  <p className="text-xs text-stone-500">Detalle de insumos desechados con su impacto monetario real.</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-stone-100/70 text-stone-600 font-bold border-b border-stone-200">
+                      <tr>
+                        <th className="p-3">Fecha y Hora</th>
+                        <th className="p-3">Insumo Desechado</th>
+                        <th className="p-3 text-center">Cantidad</th>
+                        <th className="p-3">Motivo / Causa</th>
+                        <th className="p-3 text-right">Pérdida ($ COP)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {(historialMermas || []).map(m => (
+                        <tr key={m.id} className="hover:bg-stone-50">
+                          <td className="p-3 text-stone-500">{new Date(m.fecha).toLocaleString('es-CO')}</td>
+                          <td className="p-3 font-bold text-stone-900">{m.insumoNombre}</td>
+                          <td className="p-3 text-center font-bold text-stone-700">{m.cantidad} {m.unidad}</td>
+                          <td className="p-3 text-stone-600">{m.motivo}</td>
+                          <td className="p-3 text-right font-black text-rose-600">{formatCOP(m.costoPerdidoCOP)}</td>
+                        </tr>
+                      ))}
+                      {(historialMermas || []).length === 0 && (
+                        <tr>
+                          <td colSpan="5" className="p-8 text-center text-stone-400">No hay mermas registradas.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {subPestana === "pedidos" && (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente, teléfono o código..."
+                  value={busquedaHistorial}
+                  onChange={e => setBusquedaHistorial(e.target.value)}
+                  className="bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none w-full sm:w-96"
+                />
+              </div>
+
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-stone-50 text-stone-600 font-bold border-b border-stone-200">
+                      <tr>
+                        <th className="p-3">Código</th>
+                        <th className="p-3">Cliente</th>
+                        <th className="p-3">Teléfono</th>
+                        <th className="p-3">Fecha Entrega</th>
+                        <th className="p-3">Productos Elaborados</th>
+                        <th className="p-3 text-right">Total Cobrado</th>
+                        <th className="p-3 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {pedidosFiltrados.map(p => (
+                        <tr key={p.id} className="hover:bg-stone-50">
+                          <td className="p-3 font-bold text-stone-400">{p.id}</td>
+                          <td className="p-3 font-bold text-stone-900">{p.cliente}</td>
+                          <td className="p-3 text-stone-500">{p.telefono || 'Sin teléfono'}</td>
+                          <td className="p-3 text-stone-600">{p.fechaEntrega}</td>
+                          <td className="p-3 text-stone-700">
+                            {(p.items || []).map((it, idx) => {
+                              const r = (recetas || []).find(rec => rec.id === it.recetaId);
+                              return <span key={idx} className="block">• {it.cantidad}x {r?.nombre || 'Producto'}</span>;
+                            })}
+                          </td>
+                          <td className="p-3 text-right font-black text-stone-900">{formatCOP(p.totalCobrado)}</td>
+                          <td className="p-3 text-center">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              p.estado === 'completado' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {p.estado === 'completado' ? 'Entregado' : 'Cancelado'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {pedidosFiltrados.length === 0 && (
+                        <tr>
+                          <td colSpan="7" className="p-8 text-center text-stone-400">
+                            No se encontraron encargos pasados en el archivo.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Modal de Tarifas y Copia de Respaldo
+    function ModalAjustesTarifas({ configuracion, setConfiguracion, onCerrar, onDescargarRespaldo, onRestaurarRespaldo, dispararToast }) {
+      const [kwh, setKwh] = useState(configuracion?.costoKwhCOP || 820);
+      const [salario, setSalario] = useState(configuracion?.salarioDeseadoHoraCOP || 18000);
+      const [cif, setCif] = useState(configuracion?.cifPorcentaje || 10);
+      const fileInputRef = useRef(null);
+
+      const guardar = (e) => {
+        e.preventDefault();
+        setConfiguracion({
+          costoKwhCOP: Number(kwh),
+          salarioDeseadoHoraCOP: Number(salario),
+          cifPorcentaje: Number(cif)
+        });
+        onCerrar();
+        dispararToast("Tarifas actualizadas en todo el taller");
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200">
+            <h3 className="font-serif-brand font-bold text-lg text-stone-900">Ajustes & Copia de Respaldo</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Tarifas del taller y seguridad de tus datos.</p>
+
+            <form onSubmit={guardar} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Costo Tarifa Eléctrica ($ COP por kWh)</label>
+                <input
+                  type="number"
+                  value={kwh}
+                  onChange={e => setKwh(Number(e.target.value))}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-stone-900"
+                />
+                <span className="text-[10px] text-stone-400">Tarifa comercial EPM / Enel / Celsia</span>
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Salario Hora del Pastelero ($ COP / hora)</label>
+                <input
+                  type="number"
+                  value={salario}
+                  onChange={e => setSalario(Number(e.target.value))}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-emerald-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">Margen Gastos Menores CIF (%)</label>
+                <input
+                  type="number"
+                  value={cif}
+                  onChange={e => setCif(Number(e.target.value))}
+                  className="w-full border border-stone-300 rounded-xl p-2.5 font-bold text-stone-900"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-stone-200 space-y-2">
+                <span className="font-bold text-stone-800 text-[11px] block uppercase tracking-wider">Copia de Seguridad de Datos</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={onDescargarRespaldo}
+                    className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl font-bold flex items-center justify-center space-x-1.5 transition text-[11px]"
+                  >
+                    <Icons.Download />
+                    <span>Descargar JSON</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl font-bold flex items-center justify-center space-x-1.5 transition text-[11px]"
+                  >
+                    <Icons.Upload />
+                    <span>Restaurar JSON</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={onRestaurarRespaldo}
+                    accept=".json"
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-stone-100">
+                <button type="button" onClick={onCerrar} className="px-3 py-2 font-bold text-stone-500 hover:bg-stone-100 rounded-xl">Cancelar</button>
+                <button type="submit" className="px-4 py-2 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md">
+                  Guardar Tarifas
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // --- MONTAJE FINAL REACT 18 ---
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
