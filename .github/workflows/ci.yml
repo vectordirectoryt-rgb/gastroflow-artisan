@@ -1,0 +1,46 @@
+name: GastroFlow CI Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-gate:
+    name: Lint, Unit & Real Browser E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20+
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependencias
+        run: npm ci
+
+      - name: 1. Verificación Estricta de Tipos (TypeScript)
+        run: npm run lint
+
+      - name: 2. Pruebas Unitarias de Fórmulas Financieras (Vitest)
+        run: npm run test:unit
+
+      - name: Instalar Navegador Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: 3. Pruebas End-to-End en Navegador Real (Playwright)
+        run: npm run test:e2e
+
+      - name: Subir Reporte Playwright si falla
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
