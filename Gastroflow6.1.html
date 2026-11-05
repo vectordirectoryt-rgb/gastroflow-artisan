@@ -1,0 +1,2886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GastroFlow Artisan - Taller de Repostería & Cocina</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18, ReactDOM & Babel Standalone via Cloudflare CDNJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+
+  <!-- Chart.js via Cloudflare CDNJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- FORMATEADOR DE MONEDA COLOMBIANA (COP) ---
+    const formatCOP = (val) => {
+      const num = Math.round(Number(val) || 0);
+      return '$ ' + num.toLocaleString('es-CO');
+    };
+
+    // --- CARGA SEGURA DE LOCALSTORAGE CON FALLBACK ---
+    const safeLoad = (key, fallback) => {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+      } catch (e) {
+        console.warn(`Error al leer ${key} de localStorage:`, e);
+        return fallback;
+      }
+    };
+
+    // --- DATOS SEMILLA PREDETERMINADOS ---
+    const INITIAL_INSUMOS = [
+      { id: 'ins_1', nombre: 'Harina de Trigo Repostera', unidad: 'g', stock_actual: 4500, stock_min: 3000, costo_empaque: 6500, gramos_por_empaque: 1000 },
+      { id: 'ins_2', nombre: 'Mantequilla sin Sal 82%', unidad: 'g', stock_actual: 850, stock_min: 1500, costo_empaque: 18000, gramos_por_empaque: 500 },
+      { id: 'ins_3', nombre: 'Azúcar Blanca Refinada', unidad: 'g', stock_actual: 5000, stock_min: 2000, costo_empaque: 5200, gramos_por_empaque: 1000 },
+      { id: 'ins_4', nombre: 'Huevos AA (Unidad)', unidad: 'und', stock_actual: 24, stock_min: 30, costo_empaque: 21000, gramos_por_empaque: 30 },
+      { id: 'ins_5', nombre: 'Chocolate de Cobertura 58%', unidad: 'g', stock_actual: 600, stock_min: 1200, costo_empaque: 34000, gramos_por_empaque: 1000 },
+      { id: 'ins_6', nombre: 'Crema de Leche 35% MG', unidad: 'g', stock_actual: 1200, stock_min: 1000, costo_empaque: 14500, gramos_por_empaque: 1000 },
+      { id: 'ins_7', nombre: 'Caja para Torta 25x25 + Blonda', unidad: 'und', stock_actual: 8, stock_min: 10, costo_empaque: 45000, gramos_por_empaque: 10 }
+    ];
+
+    const INITIAL_RECETAS = [
+      {
+        id: 'rec_1',
+        nombre: 'Torta Selva Negra Artesanal (12-15 Porciones)',
+        porciones_base: 1,
+        precio_venta: 85000,
+        tiempo_minutos: 90,
+        cif_porcentaje: 8,
+        ingredientes: [
+          { insumo_id: 'ins_1', cantidad: 350 },
+          { insumo_id: 'ins_2', cantidad: 220 },
+          { insumo_id: 'ins_3', cantidad: 300 },
+          { insumo_id: 'ins_4', cantidad: 5 },
+          { insumo_id: 'ins_5', cantidad: 300 },
+          { insumo_id: 'ins_6', cantidad: 400 },
+          { insumo_id: 'ins_7', cantidad: 1 }
+        ],
+        equipos: [
+          { nombre: 'Horno Eléctrico Convector', potencia_watts: 2400, minutos_uso: 50 },
+          { nombre: 'Batidora Planetaria', potencia_watts: 450, minutos_uso: 25 }
+        ]
+      },
+      {
+        id: 'rec_2',
+        nombre: 'Caja x12 Galletas Red Velvet con Relleno',
+        porciones_base: 1,
+        precio_venta: 48000,
+        tiempo_minutos: 60,
+        cif_porcentaje: 6,
+        ingredientes: [
+          { insumo_id: 'ins_1', cantidad: 280 },
+          { insumo_id: 'ins_2', cantidad: 150 },
+          { insumo_id: 'ins_3', cantidad: 180 },
+          { insumo_id: 'ins_4', cantidad: 2 },
+          { insumo_id: 'ins_5', cantidad: 150 },
+          { insumo_id: 'ins_7', cantidad: 1 }
+        ],
+        equipos: [
+          { nombre: 'Horno Eléctrico Convector', potencia_watts: 2400, minutos_uso: 20 },
+          { nombre: 'Batidora Planetaria', potencia_watts: 450, minutos_uso: 15 }
+        ]
+      }
+    ];
+
+    const hoy = new Date().toISOString().split('T')[0];
+    const manana = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+    const INITIAL_PEDIDOS = [
+      {
+        id: 'ped_1',
+        cliente_nombre: 'Mariana Gómez Restrepo',
+        cliente_telefono: '3124567890',
+        receta_id: 'rec_1',
+        cantidad: 1,
+        fecha_entrega: hoy,
+        hora_entrega: '16:00',
+        notas: 'Dedicatoria: "Feliz Cumpleaños Mamá". Sin licor.',
+        precio_total: 85000,
+        abono: 40000,
+        estado: 'en_preparacion'
+      },
+      {
+        id: 'ped_2',
+        cliente_nombre: 'Carlos E. Duque',
+        cliente_telefono: '3007891234',
+        receta_id: 'rec_2',
+        cantidad: 2,
+        fecha_entrega: manana,
+        hora_entrega: '11:30',
+        notas: 'Empaque para regalo con cinta dorada.',
+        precio_total: 96000,
+        abono: 50000,
+        estado: 'pendiente'
+      },
+      {
+        id: 'ped_3',
+        cliente_nombre: 'Laura Morales',
+        cliente_telefono: '3109876543',
+        receta_id: 'rec_1',
+        cantidad: 1,
+        fecha_entrega: hoy,
+        hora_entrega: '18:30',
+        notas: 'Decoración con fresas frescas adicionales.',
+        precio_total: 85000,
+        abono: 85000,
+        estado: 'pendiente'
+      }
+    ];
+
+    const INITIAL_MERMAS = [
+      { id: 'mrm_1', fecha: hoy, insumo_id: 'ins_2', cantidad: 150, motivo: 'Mantequilla sobrecalentada al dorar', costo_total: 5400 }
+    ];
+
+    const INITIAL_CONFIG = {
+      tarifa_kwh: 850 // COP por kWh en Colombia
+    };
+
+    // ==========================================
+    // COMPONENTE PRINCIPAL
+    // ==========================================
+    function App() {
+      // Estado Maestro
+      const [vista, setVista] = useState('dashboard'); // dashboard, pedidos, cocina, bodega, recetas, historial
+      const [insumos, setInsumos] = useState(() => safeLoad('gf_artisan_v14_insumos', INITIAL_INSUMOS));
+      const [recetas, setRecetas] = useState(() => safeLoad('gf_artisan_v14_recetas', INITIAL_RECETAS));
+      const [pedidos, setPedidos] = useState(() => safeLoad('gf_artisan_v14_pedidos', INITIAL_PEDIDOS));
+      const [mermas, setMermas] = useState(() => safeLoad('gf_artisan_v14_mermas', INITIAL_MERMAS));
+      const [config, setConfig] = useState(() => safeLoad('gf_artisan_v14_config', INITIAL_CONFIG));
+
+      // Modales Activos
+      const [modalAjustes, setModalAjustes] = useState(false);
+      const [modalNuevoPedido, setModalNuevoPedido] = useState(false);
+      const [modalPaseCocina, setModalPaseCocina] = useState(null);
+      const [modalWhatsApp, setModalWhatsApp] = useState(null);
+      const [modalEditarInsumo, setModalEditarInsumo] = useState(null);
+      const [modalRegistroCompra, setModalRegistroCompra] = useState(null);
+      const [modalRegistroMerma, setModalRegistroMerma] = useState(null);
+      const [modalEditarReceta, setModalEditarReceta] = useState(null);
+      const [popoverNotificaciones, setPopoverNotificaciones] = useState(false);
+
+      // Persistencia Automática
+      useEffect(() => { localStorage.setItem('gf_artisan_v14_insumos', JSON.stringify(insumos)); }, [insumos]);
+      useEffect(() => { localStorage.setItem('gf_artisan_v14_recetas', JSON.stringify(recetas)); }, [recetas]);
+      useEffect(() => { localStorage.setItem('gf_artisan_v14_pedidos', JSON.stringify(pedidos)); }, [pedidos]);
+      useEffect(() => { localStorage.setItem('gf_artisan_v14_mermas', JSON.stringify(mermas)); }, [mermas]);
+      useEffect(() => { localStorage.setItem('gf_artisan_v14_config', JSON.stringify(config)); }, [config]);
+
+      // --- CÁLCULO DE COSTEO INVERSO Y RETORNO HORARIO ---
+      const calcularCostosReceta = (receta, factorEscala = 1) => {
+        if (!receta) return { costoInsumos: 0, costoEnergia: 0, costoCIF: 0, costoTotal: 0, remanenteNeto: 0, valorHoraReal: 0 };
+        
+        let costoInsumos = 0;
+        receta.ingredientes.forEach(ing => {
+          const ins = insumos.find(i => i.id === ing.insumo_id);
+          if (ins && ins.gramos_por_empaque > 0) {
+            const costoUnit = ins.costo_empaque / ins.gramos_por_empaque;
+            costoInsumos += (ing.cantidad * factorEscala) * costoUnit;
+          }
+        });
+
+        let costoEnergia = 0;
+        if (receta.equipos && Array.isArray(receta.equipos)) {
+          receta.equipos.forEach(eq => {
+            const horas = (eq.minutos_uso * factorEscala) / 60;
+            const kwh = (eq.potencia_watts / 1000) * horas;
+            costoEnergia += kwh * config.tarifa_kwh;
+          });
+        }
+
+        const cifPorc = receta.cif_porcentaje || 0;
+        const costoCIF = (costoInsumos + costoEnergia) * (cifPorc / 100);
+        const costoTotal = costoInsumos + costoEnergia + costoCIF;
+
+        const precioTotalVenta = receta.precio_venta * factorEscala;
+        const remanenteNeto = precioTotalVenta - costoTotal;
+        const horasTrabajo = ((receta.tiempo_minutos || 60) * factorEscala) / 60;
+        const valorHoraReal = horasTrabajo > 0 ? (remanenteNeto / horasTrabajo) : 0;
+
+        return {
+          costoInsumos,
+          costoEnergia,
+          costoCIF,
+          costoTotal,
+          remanenteNeto,
+          valorHoraReal,
+          horasTrabajo
+        };
+      };
+
+      // --- CÁLCULO INTELIGENTE DE FALTANTES (COMPROMETIDOS VS BODEGA) ---
+      const analisisFaltantes = useMemo(() => {
+        const demandaPendientes = {};
+        const pedidosAfectadosPorInsumo = {};
+
+        pedidos.filter(p => p.estado === 'pendiente').forEach(ped => {
+          const rec = recetas.find(r => r.id === ped.receta_id);
+          if (rec) {
+            rec.ingredientes.forEach(ing => {
+              const cantTotal = ing.cantidad * ped.cantidad;
+              demandaPendientes[ing.insumo_id] = (demandaPendientes[ing.insumo_id] || 0) + cantTotal;
+              if (!pedidosAfectadosPorInsumo[ing.insumo_id]) pedidosAfectadosPorInsumo[ing.insumo_id] = [];
+              pedidosAfectadosPorInsumo[ing.insumo_id].push(ped.cliente_nombre);
+            });
+          }
+        });
+
+        const faltantesCriticos = [];
+        const alertasStockMinimo = [];
+
+        insumos.forEach(ins => {
+          const requerimiento = demandaPendientes[ins.id] || 0;
+          const deficit = requerimiento - ins.stock_actual;
+
+          if (deficit > 0) {
+            faltantesCriticos.push({
+              insumo: ins,
+              requerido: requerimiento,
+              stock: ins.stock_actual,
+              faltante: deficit,
+              clientes: pedidosAfectadosPorInsumo[ins.id] || []
+            });
+          } else if (ins.stock_actual <= ins.stock_min) {
+            alertasStockMinimo.push({
+              insumo: ins,
+              stock: ins.stock_actual,
+              minimo: ins.stock_min
+            });
+          }
+        });
+
+        return { faltantesCriticos, alertasStockMinimo, totalAlertas: faltantesCriticos.length + alertasStockMinimo.length };
+      }, [pedidos, recetas, insumos]);
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          {/* HEADER / NAVBAR FIJO CON NOMBRES ORIGINALES */}
+          <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b border-slate-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              {/* Logo e Isotipo Fijo Definitivo */}
+              <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setVista('dashboard')}>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-bold text-xl shadow-inner">
+                  🥐
+                </div>
+                <div>
+                  <h1 className="font-bold text-lg tracking-tight text-white leading-none">GastroFlow <span className="text-amber-400 font-serif italic">Artisan</span></h1>
+                  <span className="text-xs text-slate-400">Pastelería & Taller de Cocina</span>
+                </div>
+              </div>
+
+              {/* Menú de Navegación con NOMBRES EXACTOS APROBADOS */}
+              <nav className="hidden md:flex items-center space-x-1">
+                {[
+                  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                  { id: 'pedidos', label: 'Libreta de Encargos', icon: '📋' },
+                  { id: 'cocina', label: 'Preparación y Cocina', icon: '👨‍🍳' },
+                  { id: 'bodega', label: 'Bodega de Insumos', icon: '📦' },
+                  { id: 'recetas', label: 'Recetario y Costeo', icon: '📖' },
+                  { id: 'historial', label: 'Auditoría e Historial', icon: '📑' }
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setVista(item.id)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1.5 ${
+                      vista === item.id 
+                        ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm' 
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              {/* Botones de Notificación y Ajustes */}
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <button
+                    onClick={() => setPopoverNotificaciones(!popoverNotificaciones)}
+                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 relative transition-colors"
+                    title="Centro de Alertas & Faltantes"
+                  >
+                    <span className="text-lg">🔔</span>
+                    {analisisFaltantes.totalAlertas > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                        {analisisFaltantes.totalAlertas}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Popover de Notificaciones */}
+                  {popoverNotificaciones && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 text-slate-800 p-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h3 className="font-bold text-sm text-slate-900 flex items-center space-x-1.5">
+                          <span>🔔</span>
+                          <span>Centro de Alertas de Bodega</span>
+                        </h3>
+                        <button onClick={() => setPopoverNotificaciones(false)} className="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto mt-2 space-y-3">
+                        {analisisFaltantes.faltantesCriticos.length > 0 && (
+                          <div>
+                            <div className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                              <span>🚨</span>
+                              <span>Faltante para Encargos Pendientes</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {analisisFaltantes.faltantesCriticos.map(item => (
+                                <div key={item.insumo.id} className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs">
+                                  <div className="flex justify-between font-bold text-rose-900">
+                                    <span>{item.insumo.nombre}</span>
+                                    <span>Faltan {item.faltante} {item.insumo.unidad}</span>
+                                  </div>
+                                  <p className="text-rose-700 text-[11px] mt-0.5">
+                                    Requerido para: {item.clientes.slice(0, 2).join(', ')}{item.clientes.length > 2 ? ` y +${item.clientes.length - 2}` : ''}
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setModalRegistroCompra(item.insumo);
+                                      setPopoverNotificaciones(false);
+                                    }}
+                                    className="mt-1.5 w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-1 px-2 rounded text-[11px] transition-colors"
+                                  >
+                                    + Comprar en Bodega
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {analisisFaltantes.alertasStockMinimo.length > 0 && (
+                          <div>
+                            <div className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                              <span>⚠️</span>
+                              <span>Reserva de Seguridad Baja</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {analisisFaltantes.alertasStockMinimo.map(item => (
+                                <div key={item.insumo.id} className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs flex items-center justify-between">
+                                  <div>
+                                    <div className="font-semibold text-amber-900">{item.insumo.nombre}</div>
+                                    <div className="text-[11px] text-amber-700">Stock: {item.stock} / Mín: {item.minimo} {item.insumo.unidad}</div>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setModalRegistroCompra(item.insumo);
+                                      setPopoverNotificaciones(false);
+                                    }}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white font-medium py-1 px-2 rounded text-[11px]"
+                                  >
+                                    Surtir
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {analisisFaltantes.totalAlertas === 0 && (
+                          <div className="text-center py-6 text-slate-400 text-xs">
+                            <span className="text-2xl block mb-1">🎉</span>
+                            ¡Inventario en regla! No hay faltantes para tus pedidos pendientes.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setModalAjustes(true)}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                  title="Configuración & Copias de Seguridad"
+                >
+                  ⚙️
+                </button>
+              </div>
+            </div>
+
+            {/* Menú Móvil */}
+            <div className="md:hidden flex overflow-x-auto px-2 py-1.5 bg-slate-950 border-t border-slate-800 space-x-1 text-xs">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                { id: 'pedidos', label: 'Libreta de Encargos', icon: '📋' },
+                { id: 'cocina', label: 'Preparación y Cocina', icon: '👨‍🍳' },
+                { id: 'bodega', label: 'Bodega de Insumos', icon: '📦' },
+                { id: 'recetas', label: 'Recetario y Costeo', icon: '📖' },
+                { id: 'historial', label: 'Auditoría e Historial', icon: '📑' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setVista(item.id)}
+                  className={`px-3 py-1.5 rounded whitespace-nowrap ${vista === item.id ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'}`}
+                >
+                  {item.icon} {item.label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {/* CUERPO PRINCIPAL DINÁMICO */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+            {vista === 'dashboard' && (
+              <DashboardView
+                pedidos={pedidos}
+                recetas={recetas}
+                insumos={insumos}
+                calcularCostosReceta={calcularCostosReceta}
+                setModalNuevoPedido={setModalNuevoPedido}
+              />
+            )}
+
+            {vista === 'pedidos' && (
+              <PedidosView
+                pedidos={pedidos}
+                setPedidos={setPedidos}
+                recetas={recetas}
+                insumos={insumos}
+                setModalNuevoPedido={setModalNuevoPedido}
+                setModalPaseCocina={setModalPaseCocina}
+                setModalWhatsApp={setModalWhatsApp}
+              />
+            )}
+
+            {vista === 'cocina' && (
+              <CocinaView
+                pedidos={pedidos}
+                recetas={recetas}
+                insumos={insumos}
+              />
+            )}
+
+            {vista === 'bodega' && (
+              <BodegaView
+                insumos={insumos}
+                setInsumos={setInsumos}
+                setModalEditarInsumo={setModalEditarInsumo}
+                setModalRegistroCompra={setModalRegistroCompra}
+                setModalRegistroMerma={setModalRegistroMerma}
+              />
+            )}
+
+            {vista === 'recetas' && (
+              <RecetarioView
+                recetas={recetas}
+                setRecetas={setRecetas}
+                insumos={insumos}
+                calcularCostosReceta={calcularCostosReceta}
+                setModalEditarReceta={setModalEditarReceta}
+              />
+            )}
+
+            {vista === 'historial' && (
+              <HistorialView
+                pedidos={pedidos}
+                mermas={mermas}
+                insumos={insumos}
+                recetas={recetas}
+              />
+            )}
+          </main>
+
+          {/* MODALES DEL SISTEMA */}
+          {modalAjustes && (
+            <ModalAjustes
+              config={config}
+              setConfig={setConfig}
+              insumos={insumos}
+              recetas={recetas}
+              pedidos={pedidos}
+              mermas={mermas}
+              setInsumos={setInsumos}
+              setRecetas={setRecetas}
+              setPedidos={setPedidos}
+              setMermas={setMermas}
+              onClose={() => setModalAjustes(false)}
+            />
+          )}
+
+          {modalNuevoPedido && (
+            <ModalNuevoPedido
+              recetas={recetas}
+              onGuardar={(nuevo) => {
+                setPedidos([nuevo, ...pedidos]);
+                setModalNuevoPedido(false);
+              }}
+              onClose={() => setModalNuevoPedido(false)}
+            />
+          )}
+
+          {modalPaseCocina && (
+            <ModalPaseCocina
+              pedido={modalPaseCocina}
+              recetas={recetas}
+              insumos={insumos}
+              onConfirmar={() => {
+                const receta = recetas.find(r => r.id === modalPaseCocina.receta_id);
+                if (receta) {
+                  const nuevosInsumos = insumos.map(ins => {
+                    const ing = receta.ingredientes.find(i => i.insumo_id === ins.id);
+                    if (ing) {
+                      const desc = ing.cantidad * modalPaseCocina.cantidad;
+                      return { ...ins, stock_actual: Math.max(0, ins.stock_actual - desc) };
+                    }
+                    return ins;
+                  });
+                  setInsumos(nuevosInsumos);
+                }
+
+                setPedidos(pedidos.map(p => p.id === modalPaseCocina.id ? { ...p, estado: 'en_preparacion' } : p));
+                setModalPaseCocina(null);
+              }}
+              onClose={() => setModalPaseCocina(null)}
+              onIrABodega={(insumo) => {
+                setModalPaseCocina(null);
+                setModalRegistroCompra(insumo);
+              }}
+            />
+          )}
+
+          {modalWhatsApp && (
+            <ModalWhatsApp
+              pedido={modalWhatsApp}
+              recetas={recetas}
+              onClose={() => setModalWhatsApp(null)}
+            />
+          )}
+
+          {modalEditarInsumo && (
+            <ModalEditarInsumo
+              insumo={modalEditarInsumo === 'nuevo' ? null : modalEditarInsumo}
+              onGuardar={(insumoGuardado) => {
+                if (modalEditarInsumo === 'nuevo') {
+                  setInsumos([...insumos, insumoGuardado]);
+                } else {
+                  setInsumos(insumos.map(i => i.id === insumoGuardado.id ? insumoGuardado : i));
+                }
+                setModalEditarInsumo(null);
+              }}
+              onClose={() => setModalEditarInsumo(null)}
+            />
+          )}
+
+          {modalRegistroCompra && (
+            <ModalRegistroCompra
+              insumo={modalRegistroCompra}
+              onGuardar={(insumoActualizado) => {
+                setInsumos(insumos.map(i => i.id === insumoActualizado.id ? insumoActualizado : i));
+                setModalRegistroCompra(null);
+              }}
+              onClose={() => setModalRegistroCompra(null)}
+            />
+          )}
+
+          {modalRegistroMerma && (
+            <ModalRegistroMerma
+              insumo={modalRegistroMerma}
+              onGuardar={(mermaObj, insumoActualizado) => {
+                setMermas([mermaObj, ...mermas]);
+                setInsumos(insumos.map(i => i.id === insumoActualizado.id ? insumoActualizado : i));
+                setModalRegistroMerma(null);
+              }}
+              onClose={() => setModalRegistroMerma(null)}
+            />
+          )}
+
+          {modalEditarReceta && (
+            <ModalEditarReceta
+              receta={modalEditarReceta === 'nuevo' ? null : modalEditarReceta}
+              insumos={insumos}
+              tarifa_kwh={config.tarifa_kwh}
+              onGuardar={(recetaGuardada) => {
+                if (modalEditarReceta === 'nuevo') {
+                  setRecetas([...recetas, recetaGuardada]);
+                } else {
+                  setRecetas(recetas.map(r => r.id === recetaGuardada.id ? recetaGuardada : r));
+                }
+                setModalEditarReceta(null);
+              }}
+              onClose={() => setModalEditarReceta(null)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 1. DASHBOARD
+    // ==========================================
+    function DashboardView({ pedidos, recetas, insumos, calcularCostosReceta, setModalNuevoPedido }) {
+      const chartRef = useRef(null);
+      const chartInstance = useRef(null);
+
+      const metricas = useMemo(() => {
+        let ventasTotales = 0;
+        let costosTotales = 0;
+        let abonosRecibidos = 0;
+        let saldosPorCobrar = 0;
+
+        pedidos.filter(p => p.estado !== 'cancelado').forEach(p => {
+          ventasTotales += p.precio_total;
+          abonosRecibidos += p.abono;
+          saldosPorCobrar += Math.max(0, p.precio_total - p.abono);
+
+          const rec = recetas.find(r => r.id === p.receta_id);
+          if (rec) {
+            const cost = calcularCostosReceta(rec, p.cantidad);
+            costosTotales += cost.costoTotal;
+          }
+        });
+
+        const utilidadNeta = ventasTotales - costosTotales;
+        const margenPromedio = ventasTotales > 0 ? (utilidadNeta / ventasTotales) * 100 : 0;
+
+        return { ventasTotales, costosTotales, utilidadNeta, margenPromedio, saldosPorCobrar, abonosRecibidos };
+      }, [pedidos, recetas, insumos]);
+
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const pedidosHoy = pedidos.filter(p => p.fecha_entrega === hoyStr && p.estado !== 'cancelado');
+
+      useEffect(() => {
+        if (typeof Chart !== 'undefined' && chartRef.current) {
+          if (chartInstance.current) chartInstance.current.destroy();
+
+          const labels = recetas.map(r => r.nombre.split(' (')[0].substring(0, 18));
+          const dataCostos = recetas.map(r => Math.round(calcularCostosReceta(r, 1).costoTotal));
+          const dataUtilidad = recetas.map(r => Math.round(Math.max(0, r.precio_venta - calcularCostosReceta(r, 1).costoTotal)));
+
+          const ctx = chartRef.current.getContext('2d');
+          chartInstance.current = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Costo Duro (Insumos + Luz + CIF)', data: dataCostos, backgroundColor: '#f59e0b' },
+                { label: 'Remanente / Mano de Obra', data: dataUtilidad, backgroundColor: '#10b981' }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                tooltip: {
+                  callbacks: {
+                    label: (context) => `${context.dataset.label}: ${formatCOP(context.raw)}`
+                  }
+                }
+              },
+              scales: {
+                x: { stacked: true },
+                y: {
+                  stacked: true,
+                  ticks: { callback: (val) => '$ ' + (val / 1000) + 'k' }
+                }
+              }
+            }
+          });
+        }
+        return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+      }, [recetas, insumos]);
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Panel Financiero & Agenda en Vivo</h2>
+              <p className="text-sm text-slate-500 mt-1">Control integral de margen real, agenda de entregas e inventario vivo.</p>
+            </div>
+            <button
+              onClick={() => setModalNuevoPedido(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-2 text-sm"
+            >
+              <span>➕</span>
+              <span>Nuevo Encargo</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ventas Comprometidas</span>
+              <div className="text-2xl font-extrabold text-slate-900 mt-1">{formatCOP(metricas.ventasTotales)}</div>
+              <div className="text-xs text-emerald-600 mt-2 font-medium flex items-center space-x-1">
+                <span>💰</span>
+                <span>Abonos en caja: {formatCOP(metricas.abonosRecibidos)}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Costo Duro Total</span>
+              <div className="text-2xl font-extrabold text-amber-600 mt-1">{formatCOP(metricas.costosTotales)}</div>
+              <div className="text-xs text-slate-500 mt-2">Materia prima + Horno/Luz + CIF</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Utilidad Neta Proyectada</span>
+              <div className="text-2xl font-extrabold text-emerald-600 mt-1">{formatCOP(metricas.utilidadNeta)}</div>
+              <div className="text-xs text-emerald-700 mt-2 font-semibold">
+                Margen global: {metricas.margenPromedio.toFixed(1)}%
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldos por Cobrar</span>
+              <div className="text-2xl font-extrabold text-blue-600 mt-1">{formatCOP(metricas.saldosPorCobrar)}</div>
+              <div className="text-xs text-blue-700 mt-2 font-medium">Cobro contra entrega del producto</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+                  <span>📊</span>
+                  <span>Estructura de Costos vs Ganancia por Receta</span>
+                </h3>
+                <span className="text-xs text-slate-400">Por unidad estándar</span>
+              </div>
+              <div className="flex-1 min-h-[260px] relative">
+                <canvas ref={chartRef}></canvas>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+                  <span>⏰</span>
+                  <span>Agenda de Entregas Hoy</span>
+                </h3>
+                <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                  {pedidosHoy.length} pedidos
+                </span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3">
+                {pedidosHoy.map(p => {
+                  const rec = recetas.find(r => r.id === p.receta_id);
+                  const saldo = Math.max(0, p.precio_total - p.abono);
+                  return (
+                    <div key={p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-amber-300 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          {p.hora_entrega || 'Todo el día'}
+                        </span>
+                        <span className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                          p.estado === 'en_preparacion' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {p.estado === 'en_preparacion' ? 'En Cocina' : 'Pendiente'}
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-800 text-sm mt-1.5">{p.cliente_nombre}</div>
+                      <div className="text-xs text-slate-500">{rec?.nombre} (x{p.cantidad})</div>
+                      {saldo > 0 && (
+                        <div className="mt-2 text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-1 rounded flex justify-between">
+                          <span>Por cobrar:</span>
+                          <span>{formatCOP(saldo)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {pedidosHoy.length === 0 && (
+                  <div className="text-center py-12 text-slate-400 text-xs">
+                    <span className="text-3xl block mb-2">☕</span>
+                    No hay entregas programadas para hoy.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 2. LIBRETA DE ENCARGOS
+    // ==========================================
+    function PedidosView({ pedidos, setPedidos, recetas, insumos, setModalNuevoPedido, setModalPaseCocina, setModalWhatsApp }) {
+      const [filtroEstado, setFiltroEstado] = useState('activos');
+      const [busqueda, setBusqueda] = useState('');
+
+      const pedidosFiltrados = useMemo(() => {
+        return pedidos.filter(p => {
+          const coincideBusqueda = 
+            p.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+            p.cliente_telefono.includes(busqueda);
+
+          if (!coincideBusqueda) return false;
+
+          if (filtroEstado === 'activos') {
+            return p.estado === 'pendiente' || p.estado === 'en_preparacion';
+          }
+          if (filtroEstado === 'completados') {
+            return p.estado === 'entregado';
+          }
+          if (filtroEstado === 'cancelados') {
+            return p.estado === 'cancelado';
+          }
+          return true;
+        });
+      }, [pedidos, filtroEstado, busqueda]);
+
+      const handleCancelarPedido = (id) => {
+        if (confirm('¿Estás seguro de cancelar este encargo? Desaparecerá de tu vista activa diaria, pero se conservará en tu Historial de Clientes.')) {
+          setPedidos(pedidos.map(p => p.id === id ? { ...p, estado: 'cancelado' } : p));
+        }
+      };
+
+      const handleEntregarPedido = (id) => {
+        const ped = pedidos.find(p => p.id === id);
+        if (!ped) return;
+        const saldo = Math.max(0, ped.precio_total - ped.abono);
+        if (saldo > 0) {
+          if (!confirm(`Este pedido tiene un saldo pendiente de ${formatCOP(saldo)}. ¿Confirmas entrega y cobro total?`)) return;
+        }
+        setPedidos(pedidos.map(p => p.id === id ? { ...p, estado: 'entregado', abono: p.precio_total } : p));
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Libreta de Encargos</h2>
+              <p className="text-sm text-slate-500 mt-1">Gestión de pedidos personalizados, saldos y despacho a cocina.</p>
+            </div>
+            <button
+              onClick={() => setModalNuevoPedido(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-2 text-sm"
+            >
+              <span>➕</span>
+              <span>Registrar Nuevo Encargo</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex space-x-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              {[
+                { id: 'activos', label: '🔥 Activos (En proceso)' },
+                { id: 'completados', label: '✅ Entregados' },
+                { id: 'cancelados', label: '❌ Cancelados' },
+                { id: 'todos', label: 'Todos' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFiltroEstado(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                    filtroEstado === tab.id
+                      ? 'bg-slate-900 text-white shadow'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="🔍 Buscar por cliente o teléfono..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {pedidosFiltrados.map(p => {
+              const rec = recetas.find(r => r.id === p.receta_id);
+              const saldoPendiente = Math.max(0, p.precio_total - p.abono);
+
+              return (
+                <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          p.estado === 'pendiente' ? 'bg-amber-100 text-amber-800' :
+                          p.estado === 'en_preparacion' ? 'bg-indigo-100 text-indigo-800' :
+                          p.estado === 'entregado' ? 'bg-emerald-100 text-emerald-800' :
+                          'bg-rose-100 text-rose-800'
+                        }`}>
+                          {p.estado === 'pendiente' ? '⏳ Pendiente' :
+                           p.estado === 'en_preparacion' ? '👨‍🍳 En Preparación' :
+                           p.estado === 'entregado' ? '✅ Entregado' : '❌ Cancelado'}
+                        </span>
+                        <h3 className="font-bold text-slate-900 text-base mt-2">{p.cliente_nombre}</h3>
+                        <p className="text-xs text-slate-500">📞 {p.cliente_telefono}</p>
+                      </div>
+
+                      <button
+                        onClick={() => setModalWhatsApp(p)}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 p-2 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors"
+                        title="Enviar confirmación por WhatsApp"
+                      >
+                        <span>💬</span>
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </button>
+                    </div>
+
+                    <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="font-bold text-slate-800 text-xs">{rec?.nombre}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">Cantidad: {p.cantidad} unidad(es)</div>
+                      {p.notas && (
+                        <div className="text-[11px] text-slate-600 italic mt-1 bg-white p-2 rounded border border-slate-200">
+                          "{p.notas}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
+                      <span>📅 Entrega: <strong className="text-slate-800">{p.fecha_entrega}</strong></span>
+                      <span>⏰ <strong className="text-slate-800">{p.hora_entrega || 'Sin hora'}</strong></span>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-500">
+                        <span>Precio Total:</span>
+                        <span className="font-bold text-slate-800">{formatCOP(p.precio_total)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Abono Recibido:</span>
+                        <span className="font-semibold">{formatCOP(p.abono)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-100">
+                        <span className="text-slate-700">Saldo Pendiente:</span>
+                        <span className={saldoPendiente > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                          {saldoPendiente > 0 ? formatCOP(saldoPendiente) : '¡PAGADO!'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
+                    {p.estado === 'pendiente' && (
+                      <button
+                        onClick={() => setModalPaseCocina(p)}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center space-x-1"
+                      >
+                        <span>👨‍🍳</span>
+                        <span>Pase a Cocina</span>
+                      </button>
+                    )}
+
+                    {p.estado === 'en_preparacion' && (
+                      <button
+                        onClick={() => handleEntregarPedido(p.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center space-x-1"
+                      >
+                        <span>✓</span>
+                        <span>Marcar Entregado</span>
+                      </button>
+                    )}
+
+                    {p.estado !== 'entregado' && p.estado !== 'cancelado' && (
+                      <button
+                        onClick={() => handleCancelarPedido(p.id)}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl text-xs font-semibold border border-transparent hover:border-rose-200 transition-colors"
+                        title="Cancelar encargo"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {pedidosFiltrados.length === 0 && (
+            <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+              <span className="text-4xl block mb-2">📋</span>
+              <p className="text-slate-500 text-sm">No se encontraron encargos bajo este filtro.</p>
+              {filtroEstado === 'activos' && (
+                <button
+                  onClick={() => setFiltroEstado('todos')}
+                  className="mt-3 text-xs text-amber-600 font-semibold hover:underline"
+                >
+                  Ver todos los encargos pasados o completados
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 3. PREPARACIÓN Y COCINA (VISTA DUAL)
+    // ==========================================
+    function CocinaView({ pedidos, recetas, insumos }) {
+      const [subVista, setSubVista] = useState('mesa_trabajo');
+      const [pedidoSeleccionadoId, setPedidoSeleccionadoId] = useState('');
+      const [pesajeCheck, setPesajeCheck] = useState({});
+
+      const pedidosCocina = useMemo(() => {
+        return pedidos.filter(p => p.estado === 'en_preparacion' || p.estado === 'pendiente');
+      }, [pedidos]);
+
+      useEffect(() => {
+        if (!pedidoSeleccionadoId && pedidosCocina.length > 0) {
+          setPedidoSeleccionadoId(pedidosCocina[0].id);
+        }
+      }, [pedidosCocina]);
+
+      const pedidoActual = pedidosCocina.find(p => p.id === pedidoSeleccionadoId) || pedidosCocina[0];
+      const recetaActual = pedidoActual ? recetas.find(r => r.id === pedidoActual.receta_id) : null;
+
+      const consolidadoCompras = useMemo(() => {
+        const mapa = {};
+        pedidosCocina.forEach(p => {
+          const rec = recetas.find(r => r.id === p.receta_id);
+          if (rec) {
+            rec.ingredientes.forEach(ing => {
+              mapa[ing.insumo_id] = (mapa[ing.insumo_id] || 0) + (ing.cantidad * p.cantidad);
+            });
+          }
+        });
+
+        return Object.keys(mapa).map(insumoId => {
+          const ins = insumos.find(i => i.id === insumoId);
+          const cantidadTotalNecesaria = mapa[insumoId];
+          const stockActual = ins?.stock_actual || 0;
+          const deficit = Math.max(0, cantidadTotalNecesaria - stockActual);
+
+          const tamanoEmpaque = ins?.gramos_por_empaque || 1000;
+          const paquetesComprar = deficit > 0 ? Math.ceil(deficit / tamanoEmpaque) : 0;
+          const cantidadComprada = paquetesComprar * tamanoEmpaque;
+          const sobranteProyectado = (stockActual + cantidadComprada) - cantidadTotalNecesaria;
+          const costoEstimadoCOP = paquetesComprar * (ins?.costo_empaque || 0);
+
+          return {
+            insumo: ins,
+            cantidadTotalNecesaria,
+            stockActual,
+            deficit,
+            paquetesComprar,
+            sobranteProyectado,
+            costoEstimadoCOP
+          };
+        });
+      }, [pedidosCocina, recetas, insumos]);
+
+      const presupuestoTotalCompras = consolidadoCompras.reduce((acc, c) => acc + c.costoEstimadoCOP, 0);
+
+      const handleCopiarListaCompras = () => {
+        let texto = `🛒 *LISTA DE COMPRAS - GASTROFLOW ARTISAN*\n`;
+        texto += `Para abastecer ${pedidosCocina.length} pedidos activos:\n\n`;
+        consolidadoCompras.filter(c => c.paquetesComprar > 0).forEach(c => {
+          texto += `• *${c.insumo.nombre}*: Comprar ${c.paquetesComprar} paq. (${formatCOP(c.costoEstimadoCOP)})\n`;
+        });
+        texto += `\n💰 *Presupuesto Estimado:* ${formatCOP(presupuestoTotalCompras)}`;
+        navigator.clipboard.writeText(texto);
+        alert('¡Lista de compras copiada al portapapeles! Puedes pegarla directamente en WhatsApp.');
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Preparación y Cocina</h2>
+              <p className="text-sm text-slate-500 mt-1">Doble modo: Pesaje exacto por preparación en mesa vs Compras globales.</p>
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setSubVista('mesa_trabajo')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 ${
+                  subVista === 'mesa_trabajo' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>⚖️</span>
+                <span>Mesa de Trabajo (Por Encargo)</span>
+              </button>
+              <button
+                onClick={() => setSubVista('abastecimiento')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 ${
+                  subVista === 'abastecimiento' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>🛒</span>
+                <span>Abastecimiento Global</span>
+              </button>
+            </div>
+          </div>
+
+          {subVista === 'mesa_trabajo' && (
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-1 space-y-2">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Seleccionar Preparación</h3>
+                {pedidosCocina.map(p => {
+                  const rec = recetas.find(r => r.id === p.receta_id);
+                  const activo = p.id === pedidoActual?.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => { setPedidoSeleccionadoId(p.id); setPesajeCheck({}); }}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                        activo ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300'
+                      }`}
+                    >
+                      <div className="font-bold text-sm">{p.cliente_nombre}</div>
+                      <div className={`text-xs ${activo ? 'text-amber-300' : 'text-slate-500'}`}>{rec?.nombre} (x{p.cantidad})</div>
+                      <div className="flex items-center justify-between text-[11px] mt-2 pt-2 border-t border-slate-200/20">
+                        <span>⏰ {p.hora_entrega || 'Sin hora'}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${
+                          p.estado === 'en_preparacion' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-amber-500/20 text-amber-300'
+                        }`}>
+                          {p.estado === 'en_preparacion' ? 'En Cocina' : 'Pendiente'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {pedidosCocina.length === 0 && (
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 text-center text-xs text-slate-400">
+                    No hay pedidos en preparación.
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                {pedidoActual && recetaActual ? (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Ficha de Pesaje en Balanza</span>
+                        <h2 className="text-xl font-extrabold text-slate-900 mt-0.5">{recetaActual.nombre}</h2>
+                        <p className="text-xs text-slate-500">Para el encargo de: <strong>{pedidoActual.cliente_nombre}</strong> (Cantidad a hornear: <strong>{pedidoActual.cantidad}</strong>)</p>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-right">
+                        <span className="text-xs text-amber-800 font-semibold block">Tiempo Estimado:</span>
+                        <span className="text-sm font-extrabold text-amber-900">⏱️ {recetaActual.tiempo_minutos * pedidoActual.cantidad} minutos</span>
+                      </div>
+                    </div>
+
+                    {pedidoActual.notas && (
+                      <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl text-xs text-rose-800">
+                        <strong>⚠️ Especificaciones del cliente:</strong> "{pedidoActual.notas}"
+                      </div>
+                    )}
+
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ingredientes a pesar en bowl:</h4>
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                        {recetaActual.ingredientes.map(ing => {
+                          const ins = insumos.find(i => i.id === ing.insumo_id);
+                          const cantTotal = ing.cantidad * pedidoActual.cantidad;
+                          const checked = pesajeCheck[ing.insumo_id] || false;
+
+                          return (
+                            <div
+                              key={ing.insumo_id}
+                              onClick={() => setPesajeCheck({ ...pesajeCheck, [ing.insumo_id]: !checked })}
+                              className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
+                                checked ? 'bg-emerald-50/60 line-through text-slate-400' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {}}
+                                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                                />
+                                <span className={`text-sm font-semibold ${checked ? 'text-slate-400' : 'text-slate-800'}`}>
+                                  {ins?.nombre}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-base font-extrabold ${checked ? 'text-slate-400' : 'text-slate-900'}`}>
+                                  {cantTotal} {ins?.unidad}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {recetaActual.equipos && recetaActual.equipos.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Equipos & Horno para esta tanda:</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {recetaActual.equipos.map((eq, idx) => (
+                            <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex justify-between items-center">
+                              <div>
+                                <span className="font-bold text-slate-800 block">⚡ {eq.nombre}</span>
+                                <span className="text-slate-500">{eq.potencia_watts} Watts</span>
+                              </div>
+                              <span className="font-extrabold text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                                {eq.minutos_uso * pedidoActual.cantidad} min
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-20 text-slate-400 text-sm">
+                    Selecciona un encargo a la izquierda para ver su receta y pesaje.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {subVista === 'abastecimiento' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Consolidado de Compras del Taller</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Cálculo de paquetes comerciales enteros y sobrante proyectado en bodega.</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right mr-2">
+                    <span className="text-[11px] text-slate-400 uppercase font-bold block">Presupuesto Estimado</span>
+                    <span className="text-lg font-extrabold text-emerald-600">{formatCOP(presupuestoTotalCompras)}</span>
+                  </div>
+                  <button
+                    onClick={handleCopiarListaCompras}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow-sm transition-colors"
+                  >
+                    <span>📋</span>
+                    <span>Copiar Lista WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Insumo Requerido</th>
+                        <th className="py-3 px-3">Demanda Total</th>
+                        <th className="py-3 px-3">En Bodega</th>
+                        <th className="py-3 px-3">Déficit</th>
+                        <th className="py-3 px-3">Paquetes a Comprar</th>
+                        <th className="py-3 px-3">Sobrante Tras Tanda</th>
+                        <th className="py-3 px-4 text-right">Inversión Aprox.</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {consolidadoCompras.map(item => (
+                        <tr key={item.insumo?.id} className={item.deficit > 0 ? 'bg-rose-50/40' : ''}>
+                          <td className="py-3 px-4 font-bold text-slate-900">
+                            {item.insumo?.nombre}
+                            <span className="block text-[10px] text-slate-400 font-normal">Presentación: {item.insumo?.gramos_por_empaque} {item.insumo?.unidad}</span>
+                          </td>
+                          <td className="py-3 px-3 font-semibold">{item.cantidadTotalNecesaria} {item.insumo?.unidad}</td>
+                          <td className="py-3 px-3">{item.stockActual} {item.insumo?.unidad}</td>
+                          <td className="py-3 px-3">
+                            {item.deficit > 0 ? (
+                              <span className="font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded">
+                                -{item.deficit} {item.insumo?.unidad}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-600 font-semibold">Cubierto ✓</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {item.paquetesComprar > 0 ? (
+                              <span className="font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                                {item.paquetesComprar} paq.
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">0 paq.</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-slate-500">
+                            +{item.sobranteProyectado} {item.insumo?.unidad}
+                          </td>
+                          <td className="py-3 px-4 text-right font-extrabold text-slate-900">
+                            {item.costoEstimadoCOP > 0 ? formatCOP(item.costoEstimadoCOP) : '$ 0'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 4. BODEGA DE INSUMOS (RESTAURADA EN FILAS COMPACTAS)
+    // ==========================================
+    function BodegaView({ insumos, setInsumos, setModalEditarInsumo, setModalRegistroCompra, setModalRegistroMerma }) {
+      const [busqueda, setBusqueda] = useState('');
+      const [orden, setOrden] = useState('prioridad_critica'); // 'prioridad_critica', 'mayor_stock', 'alfa_az', 'alfa_za'
+
+      const insumosProcesados = useMemo(() => {
+        let lista = insumos.filter(ins => {
+          return ins.nombre.toLowerCase().includes(busqueda.toLowerCase());
+        });
+
+        lista.sort((a, b) => {
+          if (orden === 'prioridad_critica') {
+            const critA = a.stock_actual <= 0 ? 0 : a.stock_actual <= a.stock_min ? 1 : 2;
+            const critB = b.stock_actual <= 0 ? 0 : b.stock_actual <= b.stock_min ? 1 : 2;
+            if (critA !== critB) return critA - critB;
+            return a.nombre.localeCompare(b.nombre);
+          }
+          if (orden === 'mayor_stock') return b.stock_actual - a.stock_actual;
+          if (orden === 'alfa_az') return a.nombre.localeCompare(b.nombre);
+          if (orden === 'alfa_za') return b.nombre.localeCompare(a.nombre);
+          return 0;
+        });
+
+        return lista;
+      }, [insumos, busqueda, orden]);
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Bodega de Insumos</h2>
+              <p className="text-sm text-slate-500 mt-1">Control de materias primas, costos unitarios, compras y mermas.</p>
+            </div>
+            <button
+              onClick={() => setModalEditarInsumo('nuevo')}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-2 text-sm"
+            >
+              <span>➕</span>
+              <span>Nuevo Insumo</span>
+            </button>
+          </div>
+
+          {/* Barra de Filtro Rápido y Selector de Orden */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="🔍 Buscar insumo por nombre..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="w-full sm:w-auto flex items-center space-x-2">
+              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Ordenar por:</span>
+              <select
+                value={orden}
+                onChange={e => setOrden(e.target.value)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="prioridad_critica">🚨 Prioridad Crítica (Agotados / Bajos primero)</option>
+                <option value="mayor_stock">📦 Mayor Stock primero</option>
+                <option value="alfa_az">🔤 Alfabético (A - Z)</option>
+                <option value="alfa_za">🔤 Alfabético (Z - A)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* TABLA DE FILAS COMPACTAS (RESTAURADA) */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">Insumo</th>
+                    <th className="py-3 px-3">Stock Actual</th>
+                    <th className="py-3 px-3">Reserva Mínima</th>
+                    <th className="py-3 px-3">Presentación Comercial</th>
+                    <th className="py-3 px-3">Costo Unitario</th>
+                    <th className="py-3 px-3">Estado</th>
+                    <th className="py-3 px-4 text-right">Acciones Rápidas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {insumosProcesados.map(ins => {
+                    const costoUnitario = ins.gramos_por_empaque > 0 ? (ins.costo_empaque / ins.gramos_por_empaque) : 0;
+                    const esAgotado = ins.stock_actual <= 0;
+                    const esCritico = !esAgotado && ins.stock_actual <= ins.stock_min;
+
+                    return (
+                      <tr key={ins.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900">
+                          {ins.nombre}
+                        </td>
+                        <td className="py-3 px-3 font-extrabold text-slate-900">
+                          <span className={esAgotado ? 'text-rose-600' : esCritico ? 'text-amber-600' : 'text-slate-900'}>
+                            {ins.stock_actual} {ins.unidad}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-500">
+                          {ins.stock_min} {ins.unidad}
+                        </td>
+                        <td className="py-3 px-3">
+                          {ins.gramos_por_empaque} {ins.unidad} = <strong className="text-slate-800">{formatCOP(ins.costo_empaque)}</strong>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-800">
+                          {formatCOP(costoUnitario)} / {ins.unidad}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            esAgotado ? 'bg-rose-100 text-rose-800' :
+                            esCritico ? 'bg-amber-100 text-amber-800' :
+                            'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {esAgotado ? 'Agotado' : esCritico ? 'Stock Bajo' : 'Óptimo'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              onClick={() => setModalRegistroCompra(ins)}
+                              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold px-2 py-1 rounded-lg text-[11px] transition-colors"
+                              title="Registrar compra y sumar stock"
+                            >
+                              + Compra
+                            </button>
+                            <button
+                              onClick={() => setModalRegistroMerma(ins)}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-2 py-1 rounded-lg text-[11px] transition-colors"
+                              title="Registrar merma o pérdida"
+                            >
+                              - Merma
+                            </button>
+                            <button
+                              onClick={() => setModalEditarInsumo(ins)}
+                              className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-1 rounded-lg text-xs"
+                              title="Editar ficha"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {insumosProcesados.length === 0 && (
+              <div className="text-center py-12 text-slate-400 text-xs">
+                No se encontraron insumos con ese nombre.
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 5. RECETARIO Y COSTEO (RESTAURADO EN ACORDEÓN DESPLEGABLE)
+    // ==========================================
+    function RecetarioView({ recetas, setRecetas, insumos, calcularCostosReceta, setModalEditarReceta }) {
+      const [escala, setEscala] = useState({});
+      const [abiertos, setAbiertos] = useState({}); // Acordeón desplegado por id
+      const [simuladorAbierto, setSimuladorAbierto] = useState({}); // Simulador plegado por id
+      const [metaHoraria, setMetaHoraria] = useState({});
+
+      const toggleAcordeon = (id) => {
+        setAbiertos({ ...abiertos, [id]: !abiertos[id] });
+      };
+
+      const toggleSimulador = (id) => {
+        setSimuladorAbierto({ ...simuladorAbierto, [id]: !simuladorAbierto[id] });
+      };
+
+      const cambiarEscala = (id, factor) => {
+        setEscala({ ...escala, [id]: factor });
+      };
+
+      const handleAplicarPrecioSugerido = (receta, nuevoPrecio) => {
+        if (confirm(`¿Deseas actualizar el precio de venta de "${receta.nombre}" a ${formatCOP(nuevoPrecio)}?`)) {
+          setRecetas(recetas.map(r => r.id === receta.id ? { ...r, precio_venta: Math.round(nuevoPrecio) } : r));
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Recetario y Costeo</h2>
+              <p className="text-sm text-slate-500 mt-1">Fichas técnicas dinámicas, multiplicadores de escala y retorno horario de mano de obra.</p>
+            </div>
+            <button
+              onClick={() => setModalEditarReceta('nuevo')}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-2 text-sm"
+            >
+              <span>➕</span>
+              <span>Nueva Receta</span>
+            </button>
+          </div>
+
+          {/* LISTA EN ACORDEÓN COLAPSABLE */}
+          <div className="space-y-4">
+            {recetas.map(rec => {
+              const factor = escala[rec.id] || 1;
+              const costos = calcularCostosReceta(rec, factor);
+              const estaAbierto = abiertos[rec.id] || false;
+              const simAbierto = simuladorAbierto[rec.id] || false;
+
+              const metaActual = metaHoraria[rec.id] || 25000;
+              const horasBase = (rec.tiempo_minutos || 60) / 60;
+              const precioVentaSugerido = (costos.costoTotal / factor) + (metaActual * horasBase);
+              const diferenciaPrecio = precioVentaSugerido - rec.precio_venta;
+
+              return (
+                <div key={rec.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm transition-shadow hover:shadow-md">
+                  {/* BARRA RESUMEN DE LA RECETA (CLICK PARA COLAPSAR/EXPANDIR) */}
+                  <div
+                    onClick={() => toggleAcordeon(rec.id)}
+                    className="p-5 bg-white cursor-pointer flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xl text-slate-400 font-bold w-6 text-center">
+                        {estaAbierto ? '▼' : '►'}
+                      </span>
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 text-base">{rec.nombre}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Rendimiento: {rec.porciones_base} unidad(es) • {rec.tiempo_minutos} min activos • CIF: {rec.cif_porcentaje || 0}%
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3" onClick={e => e.stopPropagation()}>
+                      {/* Retorno Horario en la Barra */}
+                      <div className="bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl text-xs">
+                        <span className="text-[10px] text-emerald-800 font-bold block uppercase">Retorno por tu hora:</span>
+                        <span className="font-extrabold text-emerald-700 text-sm">{formatCOP(costos.valorHoraReal)} / h</span>
+                      </div>
+
+                      {/* Precio de Venta */}
+                      <div className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl text-xs">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Precio de Venta:</span>
+                        <span className="font-extrabold text-slate-900 text-sm">{formatCOP(rec.precio_venta * factor)}</span>
+                      </div>
+
+                      {/* Escala Live */}
+                      <div className="flex bg-slate-100 rounded-lg p-0.5 space-x-0.5">
+                        {[1, 1.5, 2, 3].map(f => (
+                          <button
+                            key={f}
+                            onClick={() => cambiarEscala(rec.id, f)}
+                            className={`px-2 py-0.5 text-xs font-bold rounded ${
+                              factor === f ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            x{f}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => setModalEditarReceta(rec)}
+                        className="text-xs text-amber-700 bg-amber-100 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg font-bold transition-colors"
+                      >
+                        ✏️ Editar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CUERPO EXPANDIDO (SOLO SI ESTÁ ABIERTO) */}
+                  {estaAbierto && (
+                    <div className="p-6 border-t border-slate-200 bg-slate-50/40 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 space-y-4">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ingredientes requeridos (Escala x{factor}):</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {rec.ingredientes.map(ing => {
+                            const ins = insumos.find(i => i.id === ing.insumo_id);
+                            const cant = ing.cantidad * factor;
+                            const costoIng = ins && ins.gramos_por_empaque > 0 ? (cant * (ins.costo_empaque / ins.gramos_por_empaque)) : 0;
+
+                            return (
+                              <div key={ing.insumo_id} className="p-2.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                                <span className="font-semibold text-slate-800">{ins?.nombre}</span>
+                                <div className="text-right">
+                                  <span className="font-bold text-slate-900 block">{cant} {ins?.unidad}</span>
+                                  <span className="text-[10px] text-slate-400">{formatCOP(costoIng)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {rec.equipos && rec.equipos.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Equipos eléctricos (Horno & Batidora):</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              {rec.equipos.map((eq, idx) => (
+                                <div key={idx} className="p-2 bg-amber-50/60 border border-amber-200/60 rounded-xl flex justify-between">
+                                  <span className="text-slate-700">⚡ {eq.nombre} ({eq.potencia_watts}W)</span>
+                                  <span className="font-bold text-amber-900">{eq.minutos_uso * factor} min</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 flex flex-col justify-between shadow-sm">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Costeo & Retorno Real</h4>
+                          
+                          <div className="mt-3 space-y-1.5 text-xs text-slate-600 border-b border-slate-200 pb-3">
+                            <div className="flex justify-between">
+                              <span>Insumos y empaques:</span>
+                              <span className="font-semibold text-slate-800">{formatCOP(costos.costoInsumos)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Energía Eléctrica (kWh):</span>
+                              <span className="font-semibold text-slate-800">{formatCOP(costos.costoEnergia)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>CIF / Gastos Menores:</span>
+                              <span className="font-semibold text-slate-800">{formatCOP(costos.costoCIF)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-slate-900 pt-1 text-sm">
+                              <span>Costo Duro Total:</span>
+                              <span className="text-amber-700">{formatCOP(costos.costoTotal)}</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                            <span className="text-[11px] font-bold text-emerald-800 uppercase block">⏱️ Pago Real por tu Hora:</span>
+                            <div className="text-xl font-extrabold text-emerald-600 mt-0.5">
+                              {formatCOP(costos.valorHoraReal)} <span className="text-xs font-normal text-slate-500">/ hora</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Remanente neto de {formatCOP(costos.remanenteNeto)} tras {costos.horasTrabajo.toFixed(1)}h de trabajo.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* SIMULADOR PLEGADO (NO INVASIVO) */}
+                        <div className="pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => toggleSimulador(rec.id)}
+                            className="w-full text-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 py-2 rounded-xl transition-colors flex items-center justify-center space-x-1"
+                          >
+                            <span>💡</span>
+                            <span>{simAbierto ? 'Ocultar Simulador de Meta' : 'Simular Meta Horaria'}</span>
+                          </button>
+
+                          {simAbierto && (
+                            <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <label className="text-[11px] text-amber-800 whitespace-nowrap">Meta deseada/h:</label>
+                                <input
+                                  type="number"
+                                  step="1000"
+                                  value={metaActual}
+                                  onChange={e => setMetaHoraria({ ...metaHoraria, [rec.id]: Number(e.target.value) })}
+                                  className="w-full px-2 py-1 bg-white border border-amber-300 rounded text-xs font-bold text-slate-800"
+                                />
+                              </div>
+                              <div className="text-[11px] text-slate-600">
+                                Para ganar esa meta, deberías vender este producto a: <strong className="text-slate-900">{formatCOP(precioVentaSugerido)}</strong> ({diferenciaPrecio >= 0 ? `+${formatCOP(diferenciaPrecio)}` : formatCOP(diferenciaPrecio)}).
+                              </div>
+                              {diferenciaPrecio !== 0 && (
+                                <button
+                                  onClick={() => handleAplicarPrecioSugerido(rec, precioVentaSugerido)}
+                                  className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-1.5 px-2 rounded-lg text-[11px] transition-colors"
+                                >
+                                  Actualizar Precio de Venta a este Valor
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 6. AUDITORÍA E HISTORIAL (CON FIDELIDAD DE CLIENTES)
+    // ==========================================
+    function HistorialView({ pedidos, mermas, insumos, recetas }) {
+      const [pestana, setPestana] = useState('fidelidad');
+      const [clienteDetalle, setClienteDetalle] = useState(null);
+
+      const clientesFidelidad = useMemo(() => {
+        const mapa = {};
+
+        pedidos.forEach(p => {
+          const key = p.cliente_nombre.trim();
+          if (!mapa[key]) {
+            mapa[key] = {
+              nombre: key,
+              telefono: p.cliente_telefono,
+              pedidos: [],
+              totalFacturado: 0,
+              completados: 0,
+              cancelados: 0,
+              activos: 0,
+              ultimaFecha: p.fecha_entrega
+            };
+          }
+
+          mapa[key].pedidos.push(p);
+          if (p.estado !== 'cancelado') {
+            mapa[key].totalFacturado += p.precio_total;
+          }
+          if (p.estado === 'entregado') mapa[key].completados++;
+          else if (p.estado === 'cancelado') mapa[key].cancelados++;
+          else mapa[key].activos++;
+
+          if (p.fecha_entrega > mapa[key].ultimaFecha) {
+            mapa[key].ultimaFecha = p.fecha_entrega;
+          }
+        });
+
+        const lista = Object.values(mapa);
+        lista.sort((a, b) => b.totalFacturado - a.totalFacturado);
+        return lista;
+      }, [pedidos]);
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Auditoría e Historial</h2>
+              <p className="text-sm text-slate-500 mt-1">Fidelidad de clientes (LTV), registro histórico de mermas y pedidos pasados.</p>
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setPestana('fidelidad')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  pestana === 'fidelidad' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                👥 Fidelidad de Clientes
+              </button>
+              <button
+                onClick={() => setPestana('pedidos_pasados')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  pestana === 'pedidos_pasados' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📜 Archivo de Encargos
+              </button>
+              <button
+                onClick={() => setPestana('mermas')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  pestana === 'mermas' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📉 Mermas & Pérdidas
+              </button>
+            </div>
+          </div>
+
+          {pestana === 'fidelidad' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clientesFidelidad.map((cli, idx) => {
+                  const ticketPromedio = cli.pedidos.length > 0 ? (cli.totalFacturado / cli.pedidos.length) : 0;
+
+                  return (
+                    <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-amber-300 transition-colors">
+                      <div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-base">{cli.nombre}</h3>
+                            <p className="text-xs text-slate-500">📞 {cli.telefono}</p>
+                          </div>
+                          <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            {cli.pedidos.length} encargo(s)
+                          </span>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-500">Valor Acumulado (LTV):</span>
+                            <span className="font-extrabold text-emerald-700 text-sm">{formatCOP(cli.totalFacturado)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500">
+                            <span>Ticket Promedio:</span>
+                            <span className="font-semibold text-slate-800">{formatCOP(ticketPromedio)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-400">
+                            <span>Última compra:</span>
+                            <span>{cli.ultimaFecha}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-500">
+                          <span className="text-emerald-600 font-semibold">✓ {cli.completados} entregados</span>
+                          <span>•</span>
+                          <span className="text-indigo-600 font-semibold">⏳ {cli.activos} en curso</span>
+                          {cli.cancelados > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="text-rose-600 font-semibold">✕ {cli.cancelados} cancelados</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setClienteDetalle(cli)}
+                        className="mt-4 w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs transition-colors"
+                      >
+                        Ver Historial Completo de este Cliente
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {clienteDetalle && (
+                <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[85vh] flex flex-col">
+                    <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">{clienteDetalle.nombre}</h3>
+                        <p className="text-xs text-slate-500">Historial completo • Teléfono: {clienteDetalle.telefono}</p>
+                      </div>
+                      <button onClick={() => setClienteDetalle(null)} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto mt-4 space-y-3">
+                      {clienteDetalle.pedidos.map(p => {
+                        const rec = recetas.find(r => r.id === p.receta_id);
+                        return (
+                          <div key={p.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                            <div className="flex justify-between font-bold">
+                              <span className="text-slate-900">{rec?.nombre} (x{p.cantidad})</span>
+                              <span className="text-slate-800">{formatCOP(p.precio_total)}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-500 mt-1">
+                              <span>Fecha: {p.fecha_entrega}</span>
+                              <span className={`font-bold ${
+                                p.estado === 'entregado' ? 'text-emerald-600' :
+                                p.estado === 'cancelado' ? 'text-rose-600' : 'text-amber-600'
+                              }`}>
+                                {p.estado.toUpperCase()}
+                              </span>
+                            </div>
+                            {p.notas && <p className="text-slate-600 italic mt-1">"{p.notas}"</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {pestana === 'pedidos_pasados' && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Fecha</th>
+                      <th className="py-3 px-3">Cliente</th>
+                      <th className="py-3 px-3">Receta</th>
+                      <th className="py-3 px-3">Cantidad</th>
+                      <th className="py-3 px-3">Valor Total</th>
+                      <th className="py-3 px-4">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {pedidos.map(p => {
+                      const rec = recetas.find(r => r.id === p.receta_id);
+                      return (
+                        <tr key={p.id}>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{p.fecha_entrega}</td>
+                          <td className="py-3 px-3 font-bold text-slate-900">{p.cliente_nombre}</td>
+                          <td className="py-3 px-3">{rec?.nombre}</td>
+                          <td className="py-3 px-3">{p.cantidad}</td>
+                          <td className="py-3 px-3 font-extrabold text-slate-900">{formatCOP(p.precio_total)}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              p.estado === 'entregado' ? 'bg-emerald-100 text-emerald-800' :
+                              p.estado === 'cancelado' ? 'bg-rose-100 text-rose-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              {p.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {pestana === 'mermas' && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <h3 className="font-bold text-slate-900 text-sm">Historial de Mermas & Pérdidas de Taller</h3>
+                <span className="text-xs text-rose-600 font-bold">
+                  Total Pérdidas: {formatCOP(mermas.reduce((acc, m) => acc + (m.costo_total || 0), 0))}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Fecha</th>
+                      <th className="py-3 px-3">Insumo</th>
+                      <th className="py-3 px-3">Cantidad Perdida</th>
+                      <th className="py-3 px-3">Motivo / Causa</th>
+                      <th className="py-3 px-4 text-right">Costo Merma (COP)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {mermas.map(m => {
+                      const ins = insumos.find(i => i.id === m.insumo_id);
+                      return (
+                        <tr key={m.id}>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{m.fecha}</td>
+                          <td className="py-3 px-3 font-bold text-slate-900">{ins?.nombre || 'Insumo'}</td>
+                          <td className="py-3 px-3 text-rose-600 font-bold">{m.cantidad} {ins?.unidad}</td>
+                          <td className="py-3 px-3 text-slate-600 italic">"{m.motivo}"</td>
+                          <td className="py-3 px-4 text-right font-extrabold text-rose-700">{formatCOP(m.costo_total)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MODALES AUXILIARES
+    // ==========================================
+    function ModalNuevoPedido({ recetas, onGuardar, onClose }) {
+      const [clienteNombre, setClienteNombre] = useState('');
+      const [clienteTelefono, setClienteTelefono] = useState('');
+      const [recetaId, setRecetaId] = useState(recetas[0]?.id || '');
+      const [cantidad, setCantidad] = useState(1);
+      const [fechaEntrega, setFechaEntrega] = useState(new Date().toISOString().split('T')[0]);
+      const [horaEntrega, setHoraEntrega] = useState('16:00');
+      const [notas, setNotas] = useState('');
+      const [abono, setAbono] = useState(0);
+
+      const receta = recetas.find(r => r.id === recetaId);
+      const precioTotal = (receta?.precio_venta || 0) * cantidad;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!clienteNombre) return alert('Ingresa el nombre del cliente');
+        onGuardar({
+          id: 'ped_' + Date.now(),
+          cliente_nombre: clienteNombre,
+          cliente_telefono: clienteTelefono,
+          receta_id: recetaId,
+          cantidad: Number(cantidad),
+          fecha_entrega: fechaEntrega,
+          hora_entrega: horaEntrega,
+          notas,
+          precio_total: precioTotal,
+          abono: Number(abono),
+          estado: 'pendiente'
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-lg">Registrar Nuevo Encargo</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Nombre del Cliente:</label>
+                  <input
+                    type="text"
+                    required
+                    value={clienteNombre}
+                    onChange={e => setClienteNombre(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    placeholder="Ej. Carolina Pérez"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Teléfono (WhatsApp):</label>
+                  <input
+                    type="tel"
+                    value={clienteTelefono}
+                    onChange={e => setClienteTelefono(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    placeholder="Ej. 3123456789"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1">Receta / Producto:</label>
+                  <select
+                    value={recetaId}
+                    onChange={e => setRecetaId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold bg-white"
+                  >
+                    {recetas.map(r => (
+                      <option key={r.id} value={r.id}>{r.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Cantidad:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={cantidad}
+                    onChange={e => setCantidad(Math.max(1, Number(e.target.value)))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Fecha de Entrega:</label>
+                  <input
+                    type="date"
+                    value={fechaEntrega}
+                    onChange={e => setFechaEntrega(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Hora Estimada:</label>
+                  <input
+                    type="time"
+                    value={horaEntrega}
+                    onChange={e => setHoraEntrega(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Notas / Dedicatoria / Especificaciones:</label>
+                <textarea
+                  rows="2"
+                  value={notas}
+                  onChange={e => setNotas(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  placeholder="Detalles de decoración, dedicatorias o alergias..."
+                ></textarea>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-slate-500 block">Total a Cobrar:</span>
+                  <span className="text-base font-extrabold text-slate-900">{formatCOP(precioTotal)}</span>
+                </div>
+                <div>
+                  <label className="font-bold text-emerald-700 block mb-0.5">Abono Inicial (COP):</label>
+                  <input
+                    type="number"
+                    step="5000"
+                    value={abono}
+                    onChange={e => setAbono(Number(e.target.value))}
+                    className="w-full px-2 py-1 rounded-lg border border-emerald-300 font-bold text-emerald-800"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-sm">Guardar Encargo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL PASE A COCINA CON BLOQUEO ESTRICTO (CORRECCIÓN IMPLEMENTADA)
+    function ModalPaseCocina({ pedido, recetas, insumos, onConfirmar, onClose, onIrABodega }) {
+      const receta = recetas.find(r => r.id === pedido.receta_id);
+
+      const { verificacion, hayFaltantes } = useMemo(() => {
+        if (!receta) return { verificacion: [], hayFaltantes: false };
+
+        let faltanteDetectado = false;
+        const lista = receta.ingredientes.map(ing => {
+          const ins = insumos.find(i => i.id === ing.insumo_id);
+          const cantidadRequerida = ing.cantidad * pedido.cantidad;
+          const stockActual = ins?.stock_actual || 0;
+          const alcanza = stockActual >= cantidadRequerida;
+
+          if (!alcanza) faltanteDetectado = true;
+
+          return {
+            insumo: ins,
+            cantidadRequerida,
+            stockActual,
+            alcanza,
+            deficit: Math.max(0, cantidadRequerida - stockActual)
+          };
+        });
+
+        return { verificacion: lista, hayFaltantes: faltanteDetectado };
+      }, [receta, insumos, pedido]);
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">Validación de Insumos - Pase a Cocina</h3>
+                <p className="text-xs text-slate-500">Para: {pedido.cliente_nombre} • {receta?.nombre} (x{pedido.cantidad})</p>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            {hayFaltantes ? (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 space-y-1">
+                <div className="font-bold flex items-center space-x-1.5 text-rose-900">
+                  <span>⛔</span>
+                  <span>Preparación Bloqueada: Materia Prima Insuficiente</span>
+                </div>
+                <p>
+                  No dispones de las existencias necesarias en bodega para completar esta receta. No puedes pasar a cocina sin insumos suficientes. Registra la compra en Bodega antes de continuar.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-800">
+                <span className="font-bold">✓ ¡Materia prima disponible al 100%!</span> Al confirmar, se descontarán automáticamente los ingredientes de la bodega y el encargo pasará a preparación.
+              </div>
+            )}
+
+            <div className="mt-4 max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+              {verificacion.map(item => (
+                <div key={item.insumo?.id} className={`p-3 text-xs flex justify-between items-center ${!item.alcanza ? 'bg-rose-50/70' : ''}`}>
+                  <div>
+                    <span className="font-bold text-slate-800 block">{item.insumo?.nombre}</span>
+                    <span className="text-[11px] text-slate-500">
+                      Requiere: <strong>{item.cantidadRequerida} {item.insumo?.unidad}</strong> | En Bodega: <strong>{item.stockActual} {item.insumo?.unidad}</strong>
+                    </span>
+                  </div>
+
+                  <div>
+                    {item.alcanza ? (
+                      <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">Disponible ✓</span>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[11px]">
+                          Faltan {item.deficit} {item.insumo?.unidad}
+                        </span>
+                        <button
+                          onClick={() => onIrABodega(item.insumo)}
+                          className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-2 py-0.5 rounded text-[10px]"
+                        >
+                          + Comprar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-slate-200 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl text-xs"
+              >
+                Cerrar
+              </button>
+
+              <button
+                type="button"
+                disabled={hayFaltantes}
+                onClick={onConfirmar}
+                className={`px-5 py-2 font-bold rounded-xl text-xs transition-colors shadow-sm flex items-center space-x-1.5 ${
+                  hayFaltantes
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                <span>👨‍🍳</span>
+                <span>Confirmar y Descontar de Bodega</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL WHATSAPP
+    function ModalWhatsApp({ pedido, recetas, onClose }) {
+      const receta = recetas.find(r => r.id === pedido.receta_id);
+      const saldo = Math.max(0, pedido.precio_total - pedido.abono);
+
+      const mensajeDefault = `Hola ${pedido.cliente_nombre} 👋, te saludamos de GastroFlow Artisan.\n\nQueremos confirmarte que tu encargo de *${receta?.nombre}* (x${pedido.cantidad}) está agendado con éxito para el día *${pedido.fecha_entrega}* a las *${pedido.hora_entrega || 'por acordar'}*.\n\n💰 Total: ${formatCOP(pedido.precio_total)}\n💵 Abono recibido: ${formatCOP(pedido.abono)}\n${saldo > 0 ? `👉 *Saldo pendiente por cancelar:* ${formatCOP(saldo)}` : '🎉 *¡Tu pedido se encuentra totalmente pagado!*'}\n\n¡Quedamos muy atentos y trabajando con mucho amor en tu preparación! 🥐✨`;
+
+      const [mensaje, setMensaje] = useState(mensajeDefault);
+
+      const handleEnviarWhatsApp = () => {
+        let tel = pedido.cliente_telefono.replace(/\D/g, '');
+        if (tel.length === 10) tel = '57' + tel;
+        const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
+        window.open(url, '_blank');
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base flex items-center space-x-1.5">
+                <span>💬</span>
+                <span>Editor de Mensaje de WhatsApp</span>
+              </h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs">
+              <p className="text-slate-500">
+                Puedes personalizar el texto antes de abrir la conversación con <strong>{pedido.cliente_nombre}</strong>:
+              </p>
+              <textarea
+                rows="8"
+                value={mensaje}
+                onChange={e => setMensaje(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              ></textarea>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-200 flex justify-end space-x-2 text-xs">
+              <button onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+              <button
+                onClick={handleEnviarWhatsApp}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm flex items-center space-x-1.5"
+              >
+                <span>💬</span>
+                <span>Abrir en WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL EDITAR INSUMO
+    function ModalEditarInsumo({ insumo, onGuardar, onClose }) {
+      const [nombre, setNombre] = useState(insumo?.nombre || '');
+      const [unidad, setUnidad] = useState(insumo?.unidad || 'g');
+      const [stockActual, setStockActual] = useState(insumo?.stock_actual || 0);
+      const [stockMin, setStockMin] = useState(insumo?.stock_min || 1000);
+      const [costoEmpaque, setCostoEmpaque] = useState(insumo?.costo_empaque || 10000);
+      const [gramosEmpaque, setGramosEmpaque] = useState(insumo?.gramos_por_empaque || 1000);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onGuardar({
+          id: insumo?.id || 'ins_' + Date.now(),
+          nombre,
+          unidad,
+          stock_actual: Number(stockActual),
+          stock_min: Number(stockMin),
+          costo_empaque: Number(costoEmpaque),
+          gramos_por_empaque: Number(gramosEmpaque)
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base">{insumo ? 'Editar Insumo' : 'Nuevo Insumo'}</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nombre:</label>
+                <input
+                  type="text"
+                  required
+                  value={nombre}
+                  onChange={e => setNombre(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Unidad de Medida:</label>
+                <select
+                  value={unidad}
+                  onChange={e => setUnidad(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
+                >
+                  <option value="g">Gramos (g)</option>
+                  <option value="ml">Mililitros (ml)</option>
+                  <option value="und">Unidades (und)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Stock Actual:</label>
+                  <input
+                    type="number"
+                    value={stockActual}
+                    onChange={e => setStockActual(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Stock Mínimo (Reserva):</label>
+                  <input
+                    type="number"
+                    value={stockMin}
+                    onChange={e => setStockMin(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Costo Empaque (COP):</label>
+                  <input
+                    type="number"
+                    value={costoEmpaque}
+                    onChange={e => setCostoEmpaque(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Contenido Empaque ({unidad}):</label>
+                  <input
+                    type="number"
+                    value={gramosEmpaque}
+                    onChange={e => setGramosEmpaque(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-sm">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL REGISTRO DE COMPRA
+    function ModalRegistroCompra({ insumo, onGuardar, onClose }) {
+      const [paquetes, setPaquetes] = useState(1);
+      const [nuevoCosto, setNuevoCosto] = useState(insumo?.costo_empaque || 10000);
+
+      const cantidadAAumentar = paquetes * (insumo?.gramos_por_empaque || 1000);
+      const inversionTotal = paquetes * nuevoCosto;
+
+      const handleConfirmar = () => {
+        onGuardar({
+          ...insumo,
+          stock_actual: insumo.stock_actual + cantidadAAumentar,
+          costo_empaque: Number(nuevoCosto)
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base">Registrar Compra</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs">
+              <div className="font-bold text-slate-800 text-sm">{insumo?.nombre}</div>
+              <p className="text-slate-500">Presentación: {insumo?.gramos_por_empaque} {insumo?.unidad} por empaque.</p>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Cantidad de Paquetes Comprados:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={paquetes}
+                  onChange={e => setPaquetes(Math.max(1, Number(e.target.value)))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-extrabold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Precio por Empaque (COP):</label>
+                <input
+                  type="number"
+                  value={nuevoCosto}
+                  onChange={e => setNuevoCosto(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold"
+                />
+              </div>
+
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-emerald-800">Incremento de Stock:</span>
+                  <span className="font-bold text-emerald-900">+{cantidadAAumentar} {insumo?.unidad}</span>
+                </div>
+                <div className="flex justify-between font-bold text-sm text-emerald-900 pt-1 border-t border-emerald-200">
+                  <span>Inversión Total:</span>
+                  <span>{formatCOP(inversionTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-200 flex justify-end space-x-2 text-xs">
+              <button onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+              <button onClick={handleConfirmar} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm">Confirmar Ingreso</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL REGISTRO DE MERMA
+    function ModalRegistroMerma({ insumo, onGuardar, onClose }) {
+      const [cantidad, setCantidad] = useState(100);
+      const [motivo, setMotivo] = useState('Vencimiento / Descomposición');
+
+      const costoGramo = insumo?.gramos_por_empaque > 0 ? (insumo.costo_empaque / insumo.gramos_por_empaque) : 0;
+      const costoTotalMerma = cantidad * costoGramo;
+
+      const handleConfirmar = () => {
+        if (cantidad > insumo.stock_actual) {
+          return alert('La merma no puede superar el stock actual disponible en bodega.');
+        }
+
+        const mermaObj = {
+          id: 'mrm_' + Date.now(),
+          fecha: new Date().toISOString().split('T')[0],
+          insumo_id: insumo.id,
+          cantidad: Number(cantidad),
+          motivo,
+          costo_total: Math.round(costoTotalMerma)
+        };
+
+        const insumoActualizado = {
+          ...insumo,
+          stock_actual: Math.max(0, insumo.stock_actual - Number(cantidad))
+        };
+
+        onGuardar(mermaObj, insumoActualizado);
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base">Registrar Merma / Pérdida</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs">
+              <div className="font-bold text-slate-800">{insumo?.nombre}</div>
+              <p className="text-slate-500">Stock disponible: {insumo?.stock_actual} {insumo?.unidad}</p>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Cantidad Perdida ({insumo?.unidad}):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={insumo?.stock_actual}
+                  value={cantidad}
+                  onChange={e => setCantidad(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-extrabold text-rose-600"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Motivo / Causa:</label>
+                <select
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
+                >
+                  <option value="Vencimiento / Descomposición">Vencimiento / Descomposición</option>
+                  <option value="Accidente o caída en mesón">Accidente o caída en mesón</option>
+                  <option value="Quema o sobrecocción en horno">Quema o sobrecocción en horno</option>
+                  <option value="Humedad / Contaminación">Humedad / Contaminación</option>
+                  <option value="Prueba técnica o ensayo">Prueba técnica o ensayo</option>
+                </select>
+              </div>
+
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex justify-between font-bold text-rose-800">
+                <span>Pérdida en Dinero:</span>
+                <span>{formatCOP(costoTotalMerma)}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-200 flex justify-end space-x-2 text-xs">
+              <button onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+              <button onClick={handleConfirmar} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-sm">Registrar Merma</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL EDITAR RECETA
+    function ModalEditarReceta({ receta, insumos, tarifa_kwh, onGuardar, onClose }) {
+      const [nombre, setNombre] = useState(receta?.nombre || '');
+      const [porcionesBase, setPorcionesBase] = useState(receta?.porciones_base || 1);
+      const [precioVenta, setPrecioVenta] = useState(receta?.precio_venta || 75000);
+      const [tiempoMinutos, setTiempoMinutos] = useState(receta?.tiempo_minutos || 90);
+      const [cifPorcentaje, setCifPorcentaje] = useState(receta?.cif_porcentaje || 8);
+      const [ingredientes, setIngredientes] = useState(receta?.ingredientes || []);
+      const [equipos, setEquipos] = useState(receta?.equipos || []);
+
+      const agregarIngrediente = () => {
+        setIngredientes([...ingredientes, { insumo_id: insumos[0]?.id || '', cantidad: 100 }]);
+      };
+
+      const quitarIngrediente = (idx) => {
+        setIngredientes(ingredientes.filter((_, i) => i !== idx));
+      };
+
+      const actualizarIngrediente = (idx, campo, valor) => {
+        setIngredientes(ingredientes.map((ing, i) => i === idx ? { ...ing, [campo]: valor } : ing));
+      };
+
+      const agregarEquipo = () => {
+        setEquipos([...equipos, { nombre: 'Horno Eléctrico', potencia_watts: 2000, minutos_uso: 30 }]);
+      };
+
+      const quitarEquipo = (idx) => {
+        setEquipos(equipos.filter((_, i) => i !== idx));
+      };
+
+      const actualizarEquipo = (idx, campo, valor) => {
+        setEquipos(equipos.map((eq, i) => i === idx ? { ...eq, [campo]: valor } : eq));
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onGuardar({
+          id: receta?.id || 'rec_' + Date.now(),
+          nombre,
+          porciones_base: Number(porcionesBase),
+          precio_venta: Number(precioVenta),
+          tiempo_minutos: Number(tiempoMinutos),
+          cif_porcentaje: Number(cifPorcentaje),
+          ingredientes,
+          equipos
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-lg">{receta ? 'Editar Ficha Técnica' : 'Nueva Receta'}</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto mt-4 space-y-4 text-xs pr-1">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nombre de la Receta:</label>
+                <input
+                  type="text"
+                  required
+                  value={nombre}
+                  onChange={e => setNombre(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Porciones:</label>
+                  <input
+                    type="number"
+                    value={porcionesBase}
+                    onChange={e => setPorcionesBase(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tiempo (min):</label>
+                  <input
+                    type="number"
+                    value={tiempoMinutos}
+                    onChange={e => setTiempoMinutos(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">CIF (%):</label>
+                  <input
+                    type="number"
+                    value={cifPorcentaje}
+                    onChange={e => setCifPorcentaje(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-emerald-700 block mb-1">Precio Venta (COP):</label>
+                  <input
+                    type="number"
+                    step="5000"
+                    value={precioVenta}
+                    onChange={e => setPrecioVenta(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-emerald-300 font-extrabold text-emerald-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-bold text-slate-800">Ingredientes de la Ficha:</h4>
+                  <button type="button" onClick={agregarIngrediente} className="text-amber-700 font-bold hover:underline">+ Añadir Ingrediente</button>
+                </div>
+                <div className="space-y-2">
+                  {ingredientes.map((ing, idx) => {
+                    const ins = insumos.find(i => i.id === ing.insumo_id);
+                    return (
+                      <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                        <select
+                          value={ing.insumo_id}
+                          onChange={e => actualizarIngrediente(idx, 'insumo_id', e.target.value)}
+                          className="flex-1 px-2 py-1.5 rounded-lg border border-slate-300 bg-white"
+                        >
+                          {insumos.map(i => (
+                            <option key={i.id} value={i.id}>{i.nombre} ({i.unidad})</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          value={ing.cantidad}
+                          onChange={e => actualizarIngrediente(idx, 'cantidad', Number(e.target.value))}
+                          className="w-24 px-2 py-1.5 rounded-lg border border-slate-300 font-bold"
+                          placeholder="Cantidad"
+                        />
+                        <span className="text-slate-500 w-8">{ins?.unidad}</span>
+                        <button type="button" onClick={() => quitarIngrediente(idx)} className="text-rose-500 hover:text-rose-700 font-bold px-2">✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-bold text-slate-800">Equipos Eléctricos & Consumo:</h4>
+                  <button type="button" onClick={agregarEquipo} className="text-amber-700 font-bold hover:underline">+ Añadir Equipo</button>
+                </div>
+                <div className="space-y-2">
+                  {equipos.map((eq, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                      <input
+                        type="text"
+                        value={eq.nombre}
+                        onChange={e => actualizarEquipo(idx, 'nombre', e.target.value)}
+                        className="flex-1 px-2 py-1.5 rounded-lg border border-slate-300"
+                        placeholder="Nombre del equipo"
+                      />
+                      <input
+                        type="number"
+                        value={eq.potencia_watts}
+                        onChange={e => actualizarEquipo(idx, 'potencia_watts', Number(e.target.value))}
+                        className="w-24 px-2 py-1.5 rounded-lg border border-slate-300"
+                        placeholder="Watts"
+                      />
+                      <span className="text-slate-500">W</span>
+                      <input
+                        type="number"
+                        value={eq.minutos_uso}
+                        onChange={e => actualizarEquipo(idx, 'minutos_uso', Number(e.target.value))}
+                        className="w-20 px-2 py-1.5 rounded-lg border border-slate-300"
+                        placeholder="Minutos"
+                      />
+                      <span className="text-slate-500">min</span>
+                      <button type="button" onClick={() => quitarEquipo(idx)} className="text-rose-500 hover:text-rose-700 font-bold px-2">✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-sm">Guardar Ficha</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // MODAL AJUSTES & RESPALDO
+    function ModalAjustes({ config, setConfig, insumos, recetas, pedidos, mermas, setInsumos, setRecetas, setPedidos, setMermas, onClose }) {
+      const [tarifaKwh, setTarifaKwh] = useState(config.tarifa_kwh);
+
+      const handleGuardarConfig = (e) => {
+        e.preventDefault();
+        setConfig({ ...config, tarifa_kwh: Number(tarifaKwh) });
+        alert('Configuración guardada.');
+        onClose();
+      };
+
+      const handleExportarBackup = () => {
+        const data = {
+          version: '14.0',
+          fecha: new Date().toISOString(),
+          insumos,
+          recetas,
+          pedidos,
+          mermas,
+          config
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gastroflow_artisan_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+      };
+
+      const handleImportarBackup = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.insumos && data.recetas) {
+              setInsumos(data.insumos);
+              setRecetas(data.recetas);
+              if (data.pedidos) setPedidos(data.pedidos);
+              if (data.mermas) setMermas(data.mermas);
+              if (data.config) setConfig(data.config);
+              alert('¡Copia de seguridad restaurada exitosamente!');
+              onClose();
+            } else {
+              alert('El archivo no tiene el formato válido de GastroFlow.');
+            }
+          } catch (err) {
+            alert('Error al leer el archivo JSON.');
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base">Ajustes & Respaldo</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <form onSubmit={handleGuardarConfig} className="mt-4 space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Tarifa Energía Eléctrica (COP / kWh):</label>
+                <input
+                  type="number"
+                  value={tarifaKwh}
+                  onChange={e => setTarifaKwh(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Dato de tu factura de energía en Colombia (promedio: $ 800 - $ 950).</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <span className="font-bold text-slate-800 block">Copia de Seguridad de tus Datos:</span>
+                <p className="text-[11px] text-slate-500">Descarga un archivo con todas tus recetas, pedidos, bodega e historial para no perder nada.</p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleExportarBackup}
+                    className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-1.5 rounded-lg text-xs"
+                  >
+                    📥 Descargar Copia
+                  </button>
+                  <label className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-1.5 rounded-lg text-xs text-center cursor-pointer">
+                    📤 Restaurar Copia
+                    <input type="file" accept=".json" onChange={handleImportarBackup} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">Cerrar</button>
+                <button type="submit" className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-sm">Guardar Ajustes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // RENDERIZAR EN EL NAVEGADOR
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
