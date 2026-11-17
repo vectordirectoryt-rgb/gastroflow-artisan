@@ -71,6 +71,14 @@ test.describe('GastroFlow Artisan - Suite E2E en Navegador Real', () => {
     await page.getByTestId('tab-cocina').click();
     await expect(page.getByTestId('cocina-view')).toBeVisible();
 
+    // Asegurar que hay al menos un pedido seleccionado
+    const checkbox = page.locator('input[type="checkbox"]').first();
+    if (await checkbox.isVisible()) {
+      if (!(await checkbox.isChecked())) {
+        await checkbox.check();
+      }
+    }
+
     // Verificar que el botón de confirmar está presente
     const btnConfirmar = page.getByTestId('btn-confirmar-lote');
     await expect(btnConfirmar).toBeVisible();

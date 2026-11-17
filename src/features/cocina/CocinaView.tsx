@@ -21,8 +21,13 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
   const [subVista, setSubVista] = useState<'mesa_trabajo' | 'abastecimiento' | 'anaquel'>('mesa_trabajo');
   const [filtroFecha, setFiltroFecha] = useState<'todos' | 'hoy' | 'manana' | 'semana'>('todos');
   const [filtroEstadoCocina, setFiltroEstadoCocina] = useState<'pendientes' | 'en_proceso'>('pendientes');
-  const [recetaSeleccionadaId, setRecetaSeleccionadaId] = useState<string>('');
-  const [pedidosSeleccionadosIds, setPedidosSeleccionadosIds] = useState<string[]>([]);
+  const [recetaSeleccionadaId, setRecetaSeleccionadaId] = useState<string>(() => recetas[0]?.id || '');
+  const [pedidosSeleccionadosIds, setPedidosSeleccionadosIds] = useState<string[]>(() => {
+    const firstRec = recetas[0]?.id;
+    if (!firstRec) return [];
+    const pend = pedidos.filter((p) => p.estado === 'pendiente' && p.receta_id === firstRec);
+    return pend.length > 0 ? [pend[0].id] : [];
+  });
   const [pesajeCheck, setPesajeCheck] = useState<Record<string, boolean>>({});
   const [alertaExito, setAlertaExito] = useState<string | null>(null);
 
@@ -40,22 +45,12 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
     return pedidos.filter((p) => p.estado === 'en_preparacion');
   }, [pedidos]);
 
-  // Auto-seleccionar receta y primer encargo disponible
+  // Si se cargan recetas desde la nube y no había seleccionada
   useEffect(() => {
     if (!recetaSeleccionadaId && recetas.length > 0) {
-      const recConPedidos = recetas.find((r) => pedidosPorHornear.some((p) => p.receta_id === r.id));
-      setRecetaSeleccionadaId(recConPedidos ? recConPedidos.id : recetas[0].id);
+      setRecetaSeleccionadaId(recetas[0].id);
     }
-  }, [recetas, pedidosPorHornear, recetaSeleccionadaId]);
-
-  useEffect(() => {
-    if (recetaSeleccionadaId && pedidosPorHornear.length > 0 && pedidosSeleccionadosIds.length === 0) {
-      const pedidosDeReceta = pedidosPorHornear.filter((p) => p.receta_id === recetaSeleccionadaId);
-      if (pedidosDeReceta.length > 0) {
-        setPedidosSeleccionadosIds([pedidosDeReceta[0].id]);
-      }
-    }
-  }, [recetaSeleccionadaId, pedidosPorHornear, pedidosSeleccionadosIds.length]);
+  }, [recetas]);
 
   // Filtrado por fecha
   const pedidosParaMostrar = useMemo(() => {
