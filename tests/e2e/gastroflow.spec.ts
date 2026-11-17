@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('GastroFlow Artisan - Suite E2E en Navegador Real', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?admin=true');
     // Esperar a que la aplicación monte en el DOM
-    await expect(page.locator('text=GastroFlow')).toBeVisible();
+    await expect(page.locator('text=GastroFlow').first()).toBeVisible();
   });
 
   test('Flujo 1: Navegación completa por pestañas y renderizado del Dashboard', async ({ page }) => {
@@ -93,5 +93,30 @@ test.describe('GastroFlow Artisan - Suite E2E en Navegador Real', () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toContain('GastroFlow_Backup_');
+  });
+
+  test('Flujo 5: Tienda Online del Cliente y Login Seguro de Administradora', async ({ page }) => {
+    // Ir a la vista pública de clientes
+    await page.goto('/');
+    await expect(page.locator('text=Los Brownies de Josefina').first()).toBeVisible();
+
+    // Verificar catálogo de repostería artesanal
+    await expect(page.locator('text=Repostería & Chocolatería Artesanal').first()).toBeVisible();
+
+    // Abrir modal de login con el candado
+    const btnCandado = page.locator('button[title*="Administración"], button:has-text("🔐")').first();
+    await btnCandado.click();
+
+    // Escribir contraseña incorrecta
+    await page.locator('input[type="password"]').fill('clave_erronea');
+    await page.locator('button:has-text("Ingresar al Taller")').click();
+    await expect(page.locator('text=Contraseña incorrecta')).toBeVisible();
+
+    // Escribir contraseña correcta de Josefina
+    await page.locator('input[type="password"]').fill('josefina2024');
+    await page.locator('button:has-text("Ingresar al Taller")').click();
+
+    // Confirmar acceso al panel administrativo de GastroFlow
+    await expect(page.getByTestId('dashboard-view')).toBeVisible();
   });
 });
