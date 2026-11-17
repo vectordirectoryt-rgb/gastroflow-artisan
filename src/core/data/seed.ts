@@ -1,4 +1,4 @@
-import { Insumo, Receta, AppConfig } from '../types';
+import { Insumo, Receta, AppConfig, Pedido } from '../types';
 
 export const INITIAL_CONFIG: AppConfig = {
   tarifaKwh: 850,
@@ -57,5 +57,59 @@ export const INITIAL_RECETAS: Receta[] = [
       { nombre: 'Horno Eléctrico Convector', potencia_watts: 2400, minutos_uso: 20 },
       { nombre: 'Batidora Planetaria', potencia_watts: 450, minutos_uso: 15 },
     ],
+  },
+];
+
+const hoy = new Date().toISOString().split('T')[0];
+const manana = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+export const INITIAL_PEDIDOS: Pedido[] = [
+  {
+    id: 'ped_1',
+    cliente_nombre: 'Mariana Gómez Restrepo',
+    cliente_telefono: '3124567890',
+    receta_id: 'rec_1',
+    cantidad: 1,
+    fecha_entrega: hoy,
+    hora_entrega: '16:00',
+    notas: 'Dedicatoria: "Feliz Cumpleaños Mamá". Sin licor.',
+    precio_total: 85000,
+    abono: 40000,
+    saldo_pendiente: 45000,
+    estado: 'en_preparacion',
+    origen: 'admin',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'ped_2',
+    cliente_nombre: 'Carlos E. Duque',
+    cliente_telefono: '3007891234',
+    receta_id: 'rec_2',
+    cantidad: 2,
+    fecha_entrega: manana,
+    hora_entrega: '11:30',
+    notas: 'Empaque para regalo con cinta dorada.',
+    precio_total: 84000,
+    abono: 50000,
+    saldo_pendiente: 34000,
+    estado: 'pendiente',
+    origen: 'admin',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'ped_3',
+    cliente_nombre: 'Laura Morales',
+    cliente_telefono: '3109876543',
+    receta_id: 'rec_1',
+    cantidad: 1,
+    fecha_entrega: hoy,
+    hora_entrega: '18:30',
+    notas: 'Decoración especial.',
+    precio_total: 85000,
+    abono: 85000,
+    saldo_pendiente: 0,
+    estado: 'pendiente',
+    origen: 'cliente',
+    created_at: new Date().toISOString(),
   },
 ];

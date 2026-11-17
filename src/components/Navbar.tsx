@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { VistaNavegacion, Insumo, Pedido } from '../core/types';
-import { Bell, ChefHat, Package, FileText, ClipboardList, BarChart3, History, Settings, Trash2, Download } from 'lucide-react';
 import { formatCOP } from '../core/utils/formatters';
 
 interface NavbarProps {
@@ -11,6 +10,8 @@ interface NavbarProps {
   onLimpiarDatos: () => void;
   onExportarJSON: () => void;
   onAbrirAjustes: () => void;
+  onVerComoCliente: () => void;
+  onCerrarSesionAdmin: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,55 +19,57 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCambiarVista,
   insumos,
   pedidos,
-  onLimpiarDatos,
   onExportarJSON,
   onAbrirAjustes,
+  onVerComoCliente,
+  onCerrarSesionAdmin,
 }) => {
-  const [mostrarMenuDatos, setMostrarMenuDatos] = useState(false);
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
+  const [mostrarMenuDatos, setMostrarMenuDatos] = useState(false);
 
-  // Alertas críticas
-  const insumosCriticos = insumos.filter((i) => i.stock_actual <= i.stock_min);
+  // Análisis de alertas y faltantes
   const hoyStr = new Date().toISOString().split('T')[0];
-  const manana = new Date();
-  manana.setDate(manana.getDate() + 1);
-  const mananaStr = manana.toISOString().split('T')[0];
+  
+  // Insumos críticos (stock <= mínimo)
+  const alertasStockMinimo = insumos.filter(i => i.stock_actual <= i.stock_min);
+  const entregasHoy = pedidos.filter(p => p.fecha_entrega === hoyStr && p.estado !== 'entregado');
+  const totalAlertas = alertasStockMinimo.length + entregasHoy.length;
 
-  const entregasHoy = pedidos.filter((p) => p.fecha_entrega === hoyStr && p.estado !== 'entregado');
-  const entregasManana = pedidos.filter((p) => p.fecha_entrega === mananaStr && p.estado !== 'entregado');
-
-  const totalAlertas = insumosCriticos.length + entregasHoy.length + entregasManana.length;
-
-  const tabs: { id: VistaNavegacion; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'pedidos', label: 'Libreta de Pedidos', icon: <ClipboardList className="w-4 h-4" /> },
-    { id: 'cocina', label: 'Cocina & Lotes', icon: <ChefHat className="w-4 h-4" /> },
-    { id: 'bodega', label: 'Insumos & Precios', icon: <Package className="w-4 h-4" /> },
-    { id: 'recetario', label: 'Recetas & Costeo', icon: <FileText className="w-4 h-4" /> },
-    { id: 'historial', label: 'Historial & Auditoría', icon: <History className="w-4 h-4" /> },
+  const tabs: { id: VistaNavegacion; label: string; icon: string }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'pedidos', label: 'Libreta de Encargos', icon: '📋' },
+    { id: 'cocina', label: 'Preparación y Cocina', icon: '👨‍🍳' },
+    { id: 'bodega', label: 'Bodega de Insumos', icon: '📦' },
+    { id: 'recetario', label: 'Recetario y Costeo', icon: '📖' },
+    { id: 'historial', label: 'Auditoría e Historial', icon: '📑' },
+    { id: 'tienda', label: 'Mi Tienda', icon: '🌐' },
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+    <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onCambiarVista('dashboard')}>
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
-              <ChefHat className="w-6 h-6" />
+          {/* LOGO GASTROFLOW ARTISAN */}
+          <div
+            onClick={() => onCambiarVista('dashboard')}
+            className="flex items-center space-x-3 cursor-pointer select-none group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-bold text-xl shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
+              🍫
             </div>
-            <div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">
-                Gastro<span className="text-amber-600">Flow</span>
-              </span>
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full w-fit">
-                Artisan v6.1
+            <div className="flex flex-col">
+              <h1 className="font-extrabold text-xl tracking-tight text-white leading-none flex items-center gap-1.5 whitespace-nowrap">
+                <span>GastroFlow</span>
+                <span className="text-amber-400 font-serif italic font-normal text-lg">Artisan</span>
+              </h1>
+              <span className="text-[11px] font-medium text-amber-200/70 tracking-wide uppercase mt-0.5 whitespace-nowrap">
+                Los Brownies de Josefina
               </span>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="hidden md:flex items-center space-x-1" aria-label="Tabs Principales">
+          {/* MENÚ DE NAVEGACIÓN DESKTOP */}
+          <nav className="hidden lg:flex items-center space-x-1" aria-label="Tabs Principales">
             {tabs.map((tab) => {
               const active = vistaActual === tab.id;
               return (
@@ -74,86 +77,110 @@ export const Navbar: React.FC<NavbarProps> = ({
                   key={tab.id}
                   onClick={() => onCambiarVista(tab.id)}
                   data-testid={`tab-${tab.id}`}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
                     active
-                      ? 'bg-amber-50 text-amber-900 border border-amber-200/80 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
                   }`}
                 >
-                  <span className={active ? 'text-amber-600' : 'text-slate-400'}>{tab.icon}</span>
+                  <span>{tab.icon}</span>
                   <span>{tab.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          {/* Right Actions: Notifications & Settings */}
-          <div className="flex items-center space-x-2">
-            {/* Notification Bell */}
+          {/* ACCIONES DERECHA: VER TIENDA, NOTIFICACIONES Y AJUSTES */}
+          <div className="flex items-center space-x-2.5">
+            {/* BOTÓN VER TIENDA CLIENTE */}
+            <button
+              onClick={onVerComoCliente}
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg shadow-sm transition"
+              title="Ver la tienda exactamente como la ven tus clientes"
+            >
+              <span>🧁</span>
+              <span className="hidden sm:inline">Ver Tienda Online</span>
+            </button>
+
+            {/* CAMPANA DE NOTIFICACIONES */}
             <div className="relative">
               <button
                 onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
-                data-testid="btn-notificaciones"
-                className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
-                title="Notificaciones urgentes"
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 relative transition-colors"
+                title="Centro de Alertas & Entregas"
               >
-                <Bell className="w-5 h-5" />
+                <span className="text-base">🔔</span>
                 {totalAlertas > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
                     {totalAlertas}
                   </span>
                 )}
               </button>
 
-              {/* Notification Popover */}
+              {/* POPOVER DE NOTIFICACIONES */}
               {mostrarNotificaciones && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 text-slate-800 p-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                      <Bell className="w-4 h-4 text-amber-600" /> Alertas del Taller
+                    <h3 className="font-bold text-sm text-slate-900 flex items-center space-x-1.5">
+                      <span>🔔</span>
+                      <span>Alertas del Taller ({totalAlertas})</span>
                     </h3>
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">
-                      {totalAlertas} pendientes
-                    </span>
+                    <button
+                      onClick={() => setMostrarNotificaciones(false)}
+                      className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                    >
+                      ✕
+                    </button>
                   </div>
 
-                  <div className="mt-3 max-h-72 overflow-y-auto space-y-2 text-xs">
+                  <div className="max-h-80 overflow-y-auto mt-2 space-y-3 text-xs">
                     {entregasHoy.length > 0 && (
-                      <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200">
-                        <span className="font-bold text-rose-800 block">🚨 Entregas para HOY ({entregasHoy.length})</span>
-                        {entregasHoy.map((p) => (
-                          <div key={p.id} className="mt-1 text-rose-700">
-                            • {p.cliente_nombre} - {p.hora_entrega || 'Todo el día'} ({formatCOP(p.saldo_pendiente)} pendiente)
-                          </div>
-                        ))}
+                      <div>
+                        <div className="font-bold text-rose-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                          <span>🚨</span>
+                          <span>Entregas para HOY ({entregasHoy.length})</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {entregasHoy.map((p) => (
+                            <div key={p.id} className="p-2 bg-rose-50 border border-rose-200 rounded-lg">
+                              <div className="flex justify-between font-bold text-rose-900">
+                                <span>{p.cliente_nombre}</span>
+                                <span>{p.hora_entrega || 'Hoy'}</span>
+                              </div>
+                              <p className="text-rose-700 text-[11px] mt-0.5">
+                                Pendiente: {formatCOP(p.saldo_pendiente)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    {entregasManana.length > 0 && (
-                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                        <span className="font-bold text-amber-800 block">⏰ Entregas para MAÑANA ({entregasManana.length})</span>
-                        {entregasManana.map((p) => (
-                          <div key={p.id} className="mt-1 text-amber-700">
-                            • {p.cliente_nombre} a las {p.hora_entrega || '12:00'} (Hornear hoy con tiempo)
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {insumosCriticos.length > 0 && (
-                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                        <span className="font-bold text-slate-800 block">⚠️ Insumos Críticos ({insumosCriticos.length})</span>
-                        {insumosCriticos.map((i) => (
-                          <div key={i.id} className="mt-1 text-slate-600">
-                            • {i.nombre}: {i.stock_actual} {i.unidad} (Mínimo: {i.stock_min} {i.unidad})
-                          </div>
-                        ))}
+                    {alertasStockMinimo.length > 0 && (
+                      <div>
+                        <div className="font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                          <span>⚠️</span>
+                          <span>Stock Bajo en Bodega ({alertasStockMinimo.length})</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {alertasStockMinimo.map((i) => (
+                            <div key={i.id} className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                              <div>
+                                <span className="font-bold text-amber-900">{i.nombre}</span>
+                                <span className="text-[11px] text-amber-700 block">
+                                  Stock: {i.stock_actual} / Mín: {i.stock_min} {i.unidad}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {totalAlertas === 0 && (
                       <div className="text-center py-6 text-slate-400">
-                        🎉 Todo en orden en cocina y bodega. ¡Excelente trabajo!
+                        <span className="text-2xl block mb-1">🎉</span>
+                        ¡Todo en orden en bodega y entregas!
                       </div>
                     )}
                   </div>
@@ -161,70 +188,66 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Settings & Data Dropdown */}
+            {/* MENÚ DE DATOS & COPIA DE SEGURIDAD */}
             <div className="relative">
               <button
-                onClick={() => setMostrarMenuDatos(!mostrarMenuDatos)}
                 data-testid="btn-menu-datos"
-                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                onClick={() => setMostrarMenuDatos(!mostrarMenuDatos)}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                title="Copia de Seguridad & Datos"
               >
-                <Settings className="w-4 h-4 text-slate-500" />
-                <span>Datos ⚙️</span>
+                <span>💾</span>
               </button>
-
               {mostrarMenuDatos && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50">
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-2 text-xs">
                   <button
-                    onClick={() => {
-                      setMostrarMenuDatos(false);
-                      onAbrirAjustes();
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Ajustes de Costeo (kWh & CIF)</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMostrarMenuDatos(false);
-                      onExportarJSON();
-                    }}
                     data-testid="btn-exportar-json"
-                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                  >
-                    <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Exportar Copia JSON</span>
-                  </button>
-                  <div className="border-t border-slate-100 my-1" />
-                  <button
                     onClick={() => {
+                      onExportarJSON();
                       setMostrarMenuDatos(false);
-                      if (window.confirm('¿Segura que deseas reiniciar los datos al estado de fábrica?')) {
-                        onLimpiarDatos();
-                      }
                     }}
-                    data-testid="btn-limpiar-todo"
-                    className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 font-bold text-slate-800 flex items-center space-x-2 transition"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Limpiar Todo (Virgen)</span>
+                    <span>📥</span>
+                    <span>Descargar Copia JSON</span>
                   </button>
                 </div>
               )}
             </div>
+
+            {/* BOTÓN AJUSTES */}
+            <button
+              onClick={onAbrirAjustes}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              title="Configuración de Costeo & Gastos Fijos"
+            >
+              <span>⚙️</span>
+            </button>
+
+            {/* BOTÓN CERRAR SESIÓN */}
+            <button
+              onClick={onCerrarSesionAdmin}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 transition-colors"
+              title="Cerrar Sesión Admin"
+            >
+              <span className="text-sm">🔒</span>
+            </button>
           </div>
         </div>
 
-        {/* Mobile Tabs */}
-        <div className="flex md:hidden overflow-x-auto py-2 space-x-1 border-t border-slate-100 no-scrollbar">
+        {/* MENÚ MÓVIL */}
+        <div className="lg:hidden flex overflow-x-auto px-2 py-2 bg-slate-950 border-t border-slate-800 space-x-1 text-xs no-scrollbar">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onCambiarVista(tab.id)}
-              className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap font-medium ${
-                vistaActual === tab.id ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600 bg-slate-50'
+              className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-bold flex items-center space-x-1 ${
+                vistaActual === tab.id
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
+              <span>{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           ))}
