@@ -99,7 +99,13 @@ export const App: React.FC = () => {
 
       if (insumosCloud.length > 0) setInsumos(insumosCloud);
       if (recetasCloud.length > 0) setRecetas(recetasCloud);
-      if (pedidosCloud.length > 0) setPedidos(pedidosCloud);
+      if (pedidosCloud.length > 0) {
+        setPedidos((prev) => {
+          const localOnly = prev.filter((p) => p.id.startsWith('ped_') || p.id === 'temp');
+          const cloudIds = new Set(pedidosCloud.map((p) => p.id));
+          return [...pedidosCloud, ...localOnly.filter((p) => !cloudIds.has(p.id))];
+        });
+      }
       if (mermasCloud.length > 0) setMermas(mermasCloud);
       if (gastosCloud.length > 0) setGastosFijos(gastosCloud);
       if (configCloud) setConfig(configCloud);

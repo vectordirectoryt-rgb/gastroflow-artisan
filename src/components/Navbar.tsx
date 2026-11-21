@@ -54,15 +54,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onCambiarVista('dashboard')}
             className="flex items-center space-x-3 cursor-pointer select-none group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-bold text-xl shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
-              🍫
+            <div className="h-10 w-10 rounded-xl bg-[#ECEBCF] p-1 flex items-center justify-center shadow-md flex-shrink-0 group-hover:scale-105 transition-transform overflow-hidden border border-[#DDDABA]">
+              <img
+                src="/logo-brownies-josefina-clean.png"
+                alt="Los Brownies de Josefina"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="flex flex-col">
               <h1 className="font-extrabold text-xl tracking-tight text-white leading-none flex items-center gap-1.5 whitespace-nowrap">
                 <span>GastroFlow</span>
-                <span className="text-amber-400 font-serif italic font-normal text-lg">Artisan</span>
+                <span className="text-[#ECEBCF] font-serif italic font-normal text-lg">Artisan</span>
               </h1>
-              <span className="text-[11px] font-medium text-amber-200/70 tracking-wide uppercase mt-0.5 whitespace-nowrap">
+              <span className="text-[11px] font-medium text-[#B6BD90] tracking-wide uppercase mt-0.5 whitespace-nowrap">
                 Los Brownies de Josefina
               </span>
             </div>
