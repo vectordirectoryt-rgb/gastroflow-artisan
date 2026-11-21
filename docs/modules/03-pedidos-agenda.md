@@ -50,3 +50,11 @@ stateDiagram-v2
 - Filtra automáticamente los pedidos programados para la fecha actual (`hoy`).
 - Los organiza por hora de entrega prometida.
 - La campana de notificaciones `🔔` alerta sobre entregas para **HOY** y para **MAÑANA** (para hornear con anticipación).
+
+---
+
+## 5. Encargos desde Tienda Online ("Los Brownies de Josefina")
+- **Carrusel Etiquetado**: Vista interactiva con badges visibles en cada fotografía para identificar la presentación, forma (ej. Cuadrado, Corazón) o empaque (ej. Individual, Cajita de regalo).
+- **Precio Dinámico en Vivo**: El valor unitario y total se recalculan en tiempo real al seleccionar variantes de tamaño, forma o presentación y al modificar la cantidad.
+- **Compatibilidad con Supabase**: Las especificaciones seleccionadas se codifican de forma transparente en el campo `notas` (`[Variantes: ...]`) y `empaque_sugerido`, asegurando que la base de datos almacene los detalles exactos sin alterar el esquema relacional.
+- **Confirmación y WhatsApp**: Al confirmar el encargo, la pantalla de éxito genera automáticamente el enlace a WhatsApp con el detalle completo de las opciones elegidas.

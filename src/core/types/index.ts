@@ -39,6 +39,27 @@ export interface EmpaqueRegla {
   insumo_id?: string;
 }
 
+export interface FotoPresentacion {
+  url: string;
+  etiqueta: string; // ej: "Porción Cuadrada", "Forma Corazón", "Empaque Individual", "Cajita de Regalo"
+  tipo?: 'forma' | 'empaque' | 'tamano' | 'general';
+}
+
+export interface OpcionVariante {
+  id: string;
+  nombre: string;
+  precio_adicional: number;
+  foto_idx?: number;
+  descripcion?: string;
+}
+
+export interface GrupoVariante {
+  id: string;
+  titulo: string;
+  tipo: 'tamano' | 'forma' | 'empaque';
+  opciones: OpcionVariante[];
+}
+
 export interface Receta {
   id: string;
   nombre: string;
@@ -55,6 +76,8 @@ export interface Receta {
   visible_en_tienda?: boolean;
   destacado?: boolean;
   foto_url?: string;
+  fotos_presentacion?: FotoPresentacion[];
+  grupos_variantes?: GrupoVariante[];
   prioridad_venta?: number;
   // Rendimiento y moldes
   molde_config?: MoldeConfig;

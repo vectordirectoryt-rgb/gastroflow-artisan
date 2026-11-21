@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Receta, Pedido } from '../../core/types';
+import { Receta, Pedido, GrupoVariante } from '../../core/types';
 import { formatCOP } from '../../core/utils/formatters';
 import {
   Sparkles,
@@ -10,15 +10,110 @@ import {
   Cake,
   Heart,
   ChevronRight,
+  ChevronLeft,
   MessageCircle,
   Star,
-  Flame,
 } from 'lucide-react';
 
 interface ClienteViewProps {
   recetas: Receta[];
   onCrearPedidoCliente: (pedido: Omit<Pedido, 'id' | 'created_at'>) => Promise<boolean>;
   onAbrirLoginAdmin: () => void;
+}
+
+interface SlideInfo {
+  url: string;
+  etiqueta: string;
+}
+
+function getSlidesParaReceta(receta: Receta): SlideInfo[] {
+  if (receta.fotos_presentacion && receta.fotos_presentacion.length > 0) {
+    return receta.fotos_presentacion.map((f) => ({ url: f.url, etiqueta: f.etiqueta }));
+  }
+
+  const baseFoto = receta.foto_url || '/cuchara-chocolate.jpg';
+  const esTorta = receta.categoria === 'tortas';
+
+  if (esTorta) {
+    return [
+      { url: baseFoto, etiqueta: 'Porción Tradicional' },
+      { url: '/cuchara-chocolate.jpg', etiqueta: 'Decoración Especial' },
+      { url: baseFoto, etiqueta: 'Caja Pastelera' },
+    ];
+  }
+
+  return [
+    { url: baseFoto, etiqueta: 'Cuadrado Clásico' },
+    { url: '/cuchara-chocolate.jpg', etiqueta: 'Forma de Corazón' },
+    { url: baseFoto, etiqueta: 'Empaque Individual' },
+    { url: '/cuchara-chocolate.jpg', etiqueta: 'Cajita de Regalo' },
+  ];
+}
+
+function getGruposVariantes(receta: Receta): GrupoVariante[] {
+  if (receta.grupos_variantes && receta.grupos_variantes.length > 0) {
+    return receta.grupos_variantes;
+  }
+
+  if (receta.categoria === 'otros') {
+    return [];
+  }
+
+  if (receta.categoria === 'tortas') {
+    return [
+      {
+        id: 'tamano',
+        titulo: 'Tamaño de Torta',
+        tipo: 'tamano',
+        opciones: [
+          { id: 'torta_med', nombre: 'Mediana (6 - 8 porciones)', precio_adicional: 0, foto_idx: 0 },
+          { id: 'torta_fam', nombre: 'Familiar (10 - 12 porciones)', precio_adicional: 28000, foto_idx: 1 },
+        ],
+      },
+      {
+        id: 'empaque',
+        titulo: 'Presentación & Empaque',
+        tipo: 'empaque',
+        opciones: [
+          { id: 'emp_std', nombre: 'Caja Pastelera Estándar', precio_adicional: 0, foto_idx: 2 },
+          { id: 'emp_reg', nombre: 'Caja de Lujo Celebración', precio_adicional: 6000, foto_idx: 1 },
+        ],
+      },
+    ];
+  }
+
+  // Brownies y postres artesanales
+  const baseP = receta.precio_venta || 6000;
+  return [
+    {
+      id: 'tamano',
+      titulo: 'Tamaño / Cantidad de Porciones',
+      tipo: 'tamano',
+      opciones: [
+        { id: 'tam_ind', nombre: 'Individual (1 und)', precio_adicional: 0, foto_idx: 0 },
+        { id: 'tam_caja4', nombre: 'Caja x 4 unds', precio_adicional: Math.round(baseP * 3 * 0.95), foto_idx: 3 },
+        { id: 'tam_caja6', nombre: 'Caja x 6 unds', precio_adicional: Math.round(baseP * 5 * 0.9), foto_idx: 3 },
+      ],
+    },
+    {
+      id: 'forma',
+      titulo: 'Forma del Brownie',
+      tipo: 'forma',
+      opciones: [
+        { id: 'forma_cuad', nombre: 'Cuadrado Clásico', precio_adicional: 0, foto_idx: 0 },
+        { id: 'forma_cor', nombre: 'Forma de Corazón', precio_adicional: 2000, foto_idx: 1 },
+      ],
+    },
+    {
+      id: 'empaque',
+      titulo: 'Presentación / Empaque',
+      tipo: 'empaque',
+      opciones: [
+        { id: 'emp_ind', nombre: 'Empaque Individual', precio_adicional: 0, foto_idx: 2 },
+        { id: 'emp_regalo', nombre: 'Cajita de Regalo con Moño', precio_adicional: 3500, foto_idx: 3 },
+      ],
+    },
+  ];
 }
 
 export const ClienteView: React.FC<ClienteViewProps> = ({
@@ -28,6 +123,12 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
 }) => {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('todos');
   const [recetaParaPedir, setRecetaParaPedir] = useState<Receta | null>(null);
+
+  // Estados del Carrusel y Variantes
+  const [carruselIdx, setCarruselIdx] = useState(0);
+  const [tamanoId, setTamanoId] = useState('');
+  const [formaId, setFormaId] = useState('');
+  const [empaqueId, setEmpaqueId] = useState('');
 
   // Formulario de encargo
   const [clienteNombre, setClienteNombre] = useState('');
@@ -59,30 +160,79 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
     return recetasVisibles.filter((r) => (r.categoria || 'brownies') === categoriaSeleccionada);
   }, [recetasVisibles, recetasDestacadas, categoriaSeleccionada]);
 
-  // Cálculo de empaque sugerido si la receta tiene reglas
-  const empaqueSugerido = useMemo(() => {
-    if (!recetaParaPedir || !recetaParaPedir.empaque_reglas || recetaParaPedir.empaque_reglas.length === 0) {
-      return null;
-    }
-    const regla = recetaParaPedir.empaque_reglas.find(
-      (reg) => cantidad >= reg.min_unidades && cantidad <= reg.max_unidades
-    );
-    if (regla) {
-      return { nombre_caja: regla.nombre_caja, cantidad_cajas: 1 };
-    }
-    return null;
-  }, [recetaParaPedir, cantidad]);
+  // Slides y Grupos de Variantes para la receta abierta
+  const slides = useMemo(() => {
+    return recetaParaPedir ? getSlidesParaReceta(recetaParaPedir) : [];
+  }, [recetaParaPedir]);
 
-  const totalCalculado = useMemo(() => {
+  const grupos = useMemo(() => {
+    return recetaParaPedir ? getGruposVariantes(recetaParaPedir) : [];
+  }, [recetaParaPedir]);
+
+  // Variantes seleccionadas activas
+  const opcionTamano = useMemo(() => {
+    const grupo = grupos.find((g) => g.tipo === 'tamano');
+    return grupo?.opciones.find((o) => o.id === tamanoId) || grupo?.opciones[0];
+  }, [grupos, tamanoId]);
+
+  const opcionForma = useMemo(() => {
+    const grupo = grupos.find((g) => g.tipo === 'forma');
+    return grupo?.opciones.find((o) => o.id === formaId) || grupo?.opciones[0];
+  }, [grupos, formaId]);
+
+  const opcionEmpaque = useMemo(() => {
+    const grupo = grupos.find((g) => g.tipo === 'empaque');
+    return grupo?.opciones.find((o) => o.id === empaqueId) || grupo?.opciones[0];
+  }, [grupos, empaqueId]);
+
+  // Precio unitario dinámico basado en las opciones elegidas
+  const precioUnitario = useMemo(() => {
     if (!recetaParaPedir) return 0;
-    return recetaParaPedir.precio_venta * cantidad;
-  }, [recetaParaPedir, cantidad]);
+    const extraTam = opcionTamano?.precio_adicional || 0;
+    const extraForma = opcionForma?.precio_adicional || 0;
+    const extraEmp = opcionEmpaque?.precio_adicional || 0;
+    return recetaParaPedir.precio_venta + extraTam + extraForma + extraEmp;
+  }, [recetaParaPedir, opcionTamano, opcionForma, opcionEmpaque]);
+
+  // Total calculado dinámicamente con cantidad
+  const totalCalculado = useMemo(() => {
+    return precioUnitario * cantidad;
+  }, [precioUnitario, cantidad]);
+
+  const handleAbrirModal = (receta: Receta) => {
+    setRecetaParaPedir(receta);
+    setCantidad(1);
+    setCarruselIdx(0);
+    const gruposRec = getGruposVariantes(receta);
+    const tam = gruposRec.find((g) => g.tipo === 'tamano')?.opciones[0]?.id || '';
+    const for_ = gruposRec.find((g) => g.tipo === 'forma')?.opciones[0]?.id || '';
+    const emp = gruposRec.find((g) => g.tipo === 'empaque')?.opciones[0]?.id || '';
+    setTamanoId(tam);
+    setFormaId(for_);
+    setEmpaqueId(emp);
+  };
 
   const handleConfirmarPedido = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recetaParaPedir || !clienteNombre.trim() || !clienteTelefono.trim()) return;
 
     setEnviando(true);
+
+    // Resumen de variantes para guardar en notas y mantener compatibilidad total con Supabase
+    const detallesVariantes = [
+      opcionTamano ? `Tamaño: ${opcionTamano.nombre}` : null,
+      opcionForma ? `Forma: ${opcionForma.nombre}` : null,
+      opcionEmpaque ? `Empaque: ${opcionEmpaque.nombre}` : null,
+    ].filter(Boolean).join(' | ');
+
+    const notasCompletas = detallesVariantes
+      ? `[Variantes: ${detallesVariantes}]${notas.trim() ? '\n' + notas.trim() : ''}`
+      : notas.trim();
+
+    const empaqueFinal = opcionEmpaque
+      ? { nombre_caja: opcionEmpaque.nombre, cantidad_cajas: cantidad }
+      : undefined;
+
     const nuevoPedido: Omit<Pedido, 'id' | 'created_at'> = {
       cliente_nombre: clienteNombre.trim(),
       cliente_telefono: clienteTelefono.trim(),
@@ -90,13 +240,13 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
       cantidad,
       fecha_entrega: fechaEntrega,
       hora_entrega: horaEntrega,
-      notas: notas.trim(),
+      notas: notasCompletas,
       precio_total: totalCalculado,
       abono: 0,
       saldo_pendiente: totalCalculado,
       estado: 'pendiente',
       origen: 'cliente',
-      empaque_sugerido: empaqueSugerido || undefined,
+      empaque_sugerido: empaqueFinal,
     };
 
     const exito = await onCrearPedidoCliente(nuevoPedido);
@@ -147,7 +297,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
         </div>
       </header>
 
-      {/* Hero Banner con Paleta Oficial y Cuchara de Chocolate del Manual de Marca */}
+      {/* Hero Banner Limpio con Paleta Oficial y Eslogan como Título Principal */}
       <section className="relative overflow-hidden py-12 sm:py-16 lg:py-20 bg-[#22221E] text-[#ECEBCF] shadow-lg">
         {/* Fondo con la imagen de la cuchara con chocolate integrada estéticamente */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -157,7 +307,6 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
             aria-hidden="true"
             className="w-full h-full object-cover object-center scale-110 opacity-20 filter blur-[2px] mix-blend-luminosity"
           />
-          {/* Capas de degradado cálido para asegurar legibilidad total */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#22221E] via-[#22221E]/95 to-[#22221E]/85" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(182,189,144,0.15),transparent_60%)]" />
         </div>
@@ -177,30 +326,13 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
               </h2>
 
               <p className="text-[#ECEBCF]/90 text-sm sm:text-base max-w-xl mx-auto lg:mx-0 font-light leading-relaxed">
-                Elaboramos cada brownie, torta y postre desde cero, con cacao puro, ingredientes seleccionados y la receta secreta de Josefina. Elige tu favorito y pídelo recién horneado.
+                Elaboramos cada brownie, torta y postre artesanal desde cero con dedicación. Elige tu favorito y programa tu encargo.
               </p>
-
-              {/* Sellos de Calidad Artesanal en la paleta oficial */}
-              <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs font-bold">
-                <span className="inline-flex items-center text-[#B6BD90] bg-[#B6BD90]/15 px-3 py-1 rounded-full border border-[#B6BD90]/30">
-                  <Flame className="w-3.5 h-3.5 mr-1 text-[#B6BD90]" />
-                  Recién horneado
-                </span>
-                <span className="inline-flex items-center text-[#98A1D5] bg-[#98A1D5]/15 px-3 py-1 rounded-full border border-[#98A1D5]/30">
-                  <Sparkles className="w-3.5 h-3.5 mr-1 text-[#98A1D5]" />
-                  Cacao 100% real
-                </span>
-                <span className="inline-flex items-center text-[#A472B9] bg-[#A472B9]/15 px-3 py-1 rounded-full border border-[#A472B9]/30">
-                  <Heart className="w-3.5 h-3.5 mr-1 text-[#A472B9]" />
-                  Receta de Josefina
-                </span>
-              </div>
             </div>
 
             {/* Columna Visual: Tarjeta Estética con la Foto Oficial de la Cuchara de Chocolate */}
             <div className="lg:col-span-4 flex justify-center">
               <div className="relative group">
-                {/* Halo decorativo de color Malva y Salvia */}
                 <div className="absolute -inset-2 bg-gradient-to-tr from-[#A472B9]/40 via-[#B6BD90]/30 to-[#98A1D5]/30 rounded-3xl blur-lg opacity-70 group-hover:opacity-100 transition duration-500" />
 
                 <div className="relative w-56 sm:w-64 rounded-3xl overflow-hidden border-2 border-[#DDDABA]/50 shadow-2xl bg-[#22221E] p-2.5">
@@ -211,11 +343,8 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#22221E]/90 via-transparent to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3 bg-[#22221E]/90 backdrop-blur-md px-3 py-2 rounded-xl border border-[#DDDABA]/40 text-center">
-                      <p className="text-[11px] font-black text-[#ECEBCF] tracking-wider uppercase font-serif">
-                        Cacao Real & Pura Melcocha
-                      </p>
-                      <p className="text-[9px] text-[#B6BD90] font-semibold tracking-widest uppercase">
+                    <div className="absolute bottom-3 left-3 right-3 bg-[#22221E]/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#DDDABA]/30 text-center">
+                      <p className="text-[10px] font-serif font-bold text-[#ECEBCF] tracking-widest uppercase">
                         Los Brownies de Josefina
                       </p>
                     </div>
@@ -229,7 +358,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
 
       {/* Contenido Principal */}
       <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-10 flex-1">
-        {/* Cabecera del Menú y Filtro Unificado (Sin Duplicación de Secciones) */}
+        {/* Cabecera del Menú y Filtro Unificado */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
           <div>
             <h3 className="text-2xl sm:text-3xl font-black text-[#22221E] font-serif">
@@ -285,7 +414,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
               Pronto tendremos delicias en esta sección
             </h4>
             <p className="text-sm text-[#5C4D43]">
-              Josefina está perfeccionando nuevas recetas en el horno.
+              Josefina está horneando nuevas preparaciones en el taller.
             </p>
           </div>
         ) : (
@@ -319,7 +448,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                             Los Brownies de Josefina
                           </span>
                           <span className="text-[10px] text-[#5C4D43] font-medium">
-                            Receta Artesanal Horneada
+                            Repostería Artesanal
                           </span>
                         </div>
                       )}
@@ -332,7 +461,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                         </span>
                       )}
 
-                      {/* Badge de Disponibilidad / Stock en Verde Salvia Oficial */}
+                      {/* Badge de Disponibilidad / Stock */}
                       {tieneStock ? (
                         <span className="absolute bottom-3 left-3 bg-[#B6BD90] text-[#22221E] text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center border border-[#9FA773]">
                           <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-[#22221E]" />
@@ -356,13 +485,13 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                     </h4>
 
                     <p className="text-xs text-[#5C4D43] mb-3 font-medium">
-                      Porción de {receta.porciones_base} {receta.porciones_base > 1 ? 'porciones' : 'porción'}
+                      Porción base: {receta.porciones_base} {receta.porciones_base > 1 ? 'porciones' : 'porción'}
                     </p>
                   </div>
 
                   <div className="pt-3 border-t border-[#DDDABA]/60 flex items-center justify-between mt-2">
                     <div>
-                      <span className="text-[11px] text-[#7A6B60] block font-semibold">Precio</span>
+                      <span className="text-[11px] text-[#7A6B60] block font-semibold">Desde</span>
                       <span className="text-xl font-black text-[#22221E]">
                         {formatCOP(receta.precio_venta)}
                       </span>
@@ -370,10 +499,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
 
                     {/* Botón CTA en Rosa Malva Oficial */}
                     <button
-                      onClick={() => {
-                        setRecetaParaPedir(receta);
-                        setCantidad(1);
-                      }}
+                      onClick={() => handleAbrirModal(receta)}
                       className="px-5 py-2.5 bg-[#A472B9] hover:bg-[#8C57A3] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center space-x-1.5 active:scale-95"
                     >
                       <ShoppingBag className="w-4 h-4" />
@@ -406,7 +532,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
             Encuentra aquí el amor más dulce
           </p>
           <p className="text-xs text-[#ECEBCF]/70 max-w-md mx-auto mb-6">
-            Elaboración artesanal bajo pedido. Garantizamos frescura inigualable y la máxima calidad en cada bocado.
+            Elaboración artesanal bajo encargo con ingredientes de alta calidad para garantizar frescura incomparable.
           </p>
 
           <div className="flex items-center justify-center space-x-1.5 text-xs text-[#ECEBCF]/60">
@@ -417,32 +543,181 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
         </div>
       </footer>
 
-      {/* Modal de Pedido para el Cliente */}
+      {/* Modal Interactivo de Pedido con Carrusel Etiquetado y Precio Dinámico */}
       {recetaParaPedir && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border-2 border-[#DDDABA] my-8 text-[#22221E]">
-            <div className="flex items-start justify-between mb-5">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border-2 border-[#DDDABA] my-6 text-[#22221E] max-h-[92vh] flex flex-col animate-in fade-in zoom-in duration-200">
+            {/* Cabecera del Modal */}
+            <div className="flex items-start justify-between pb-3 border-b border-[#DDDABA]/60 flex-shrink-0">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#A472B9] bg-[#A472B9]/10 px-2.5 py-1 rounded-md">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#A472B9] bg-[#A472B9]/10 px-2.5 py-0.5 rounded-md">
                   Encargo en línea
                 </span>
-                <h3 className="text-xl sm:text-2xl font-black text-[#22221E] font-serif mt-1">
+                <h3 className="text-xl sm:text-2xl font-black text-[#22221E] font-serif mt-0.5">
                   {recetaParaPedir.nombre}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setRecetaParaPedir(null)}
                 className="text-[#7A6B60] hover:text-[#22221E] text-2xl font-bold leading-none p-1 transition-colors"
+                aria-label="Cerrar modal"
               >
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleConfirmarPedido} className="space-y-4">
-              {/* Cantidad */}
-              <div>
-                <label className="block text-xs font-bold text-[#22221E] mb-1">
-                  ¿Cuántas unidades deseas?
+            <div className="overflow-y-auto pr-1 space-y-4 flex-1 pt-3">
+              {/* CARRUSEL DE PRESENTACIONES CON ETIQUETAS CLARAS */}
+              <div className="relative rounded-2xl overflow-hidden bg-[#22221E] border-2 border-[#DDDABA] shadow-inner">
+                <div className="relative h-48 sm:h-56 w-full overflow-hidden flex items-center justify-center">
+                  {slides.length > 0 && (
+                    <img
+                      src={slides[carruselIdx]?.url}
+                      alt={slides[carruselIdx]?.etiqueta}
+                      className="w-full h-full object-cover transition-all duration-300"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+
+                  {/* ETIQUETA VISIBLE CLARA DEL CARRUSEL */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <span
+                      data-testid="carrusel-etiqueta"
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#22221E]/90 text-[#ECEBCF] border border-[#DDDABA]/50 shadow-lg backdrop-blur-md"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#B6BD90]" />
+                      <span>{slides[carruselIdx]?.etiqueta || 'Presentación'}</span>
+                    </span>
+                  </div>
+
+                  {/* Botones de navegación Anterior / Siguiente */}
+                  {slides.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCarruselIdx((prev) => (prev === 0 ? slides.length - 1 : prev - 1))
+                        }
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-[#22221E] flex items-center justify-center shadow-md border border-[#DDDABA] transition-transform active:scale-90 z-10"
+                        aria-label="Presentación anterior"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCarruselIdx((prev) => (prev === slides.length - 1 ? 0 : prev + 1))
+                        }
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-[#22221E] flex items-center justify-center shadow-md border border-[#DDDABA] transition-transform active:scale-90 z-10"
+                        aria-label="Presentación siguiente"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Indicadores de Puntos (Dots) */}
+                  {slides.length > 1 && (
+                    <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center space-x-1.5 z-10">
+                      {slides.map((s, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCarruselIdx(idx)}
+                          className={`transition-all rounded-full ${
+                            carruselIdx === idx ? 'w-5 h-2 bg-[#A472B9]' : 'w-2 h-2 bg-white/70 hover:bg-white'
+                          }`}
+                          aria-label={`Ver ${s.etiqueta}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SELECTORES DE OPCIONES CONFIGURABLES CON PRECIO DINÁMICO */}
+              {grupos.map((grupo) => {
+                let valorActual = '';
+                let setValor: (id: string) => void = () => {};
+
+                if (grupo.tipo === 'tamano') {
+                  valorActual = tamanoId;
+                  setValor = (id: string) => {
+                    setTamanoId(id);
+                    const op = grupo.opciones.find((o) => o.id === id);
+                    if (op && op.foto_idx !== undefined && op.foto_idx < slides.length) {
+                      setCarruselIdx(op.foto_idx);
+                    }
+                  };
+                } else if (grupo.tipo === 'forma') {
+                  valorActual = formaId;
+                  setValor = (id: string) => {
+                    setFormaId(id);
+                    const op = grupo.opciones.find((o) => o.id === id);
+                    if (op && op.foto_idx !== undefined && op.foto_idx < slides.length) {
+                      setCarruselIdx(op.foto_idx);
+                    }
+                  };
+                } else if (grupo.tipo === 'empaque') {
+                  valorActual = empaqueId;
+                  setValor = (id: string) => {
+                    setEmpaqueId(id);
+                    const op = grupo.opciones.find((o) => o.id === id);
+                    if (op && op.foto_idx !== undefined && op.foto_idx < slides.length) {
+                      setCarruselIdx(op.foto_idx);
+                    }
+                  };
+                }
+
+                return (
+                  <div key={grupo.id} className="space-y-1.5">
+                    <label className="block text-xs font-bold text-[#22221E] uppercase tracking-wider">
+                      {grupo.titulo}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {grupo.opciones.map((op) => {
+                        const seleccionada = valorActual === op.id;
+                        return (
+                          <button
+                            key={op.id}
+                            type="button"
+                            onClick={() => setValor(op.id)}
+                            className={`px-3 py-2.5 rounded-xl text-left border-2 transition-all flex items-center justify-between text-xs font-bold ${
+                              seleccionada
+                                ? 'border-[#A472B9] bg-[#A472B9] text-white shadow-sm'
+                                : 'border-[#DDDABA] bg-[#ECEBCF]/30 hover:bg-[#ECEBCF]/60 text-[#22221E]'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-1.5">
+                              <span
+                                className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                  seleccionada ? 'border-white bg-white' : 'border-[#DDDABA]'
+                                }`}
+                              >
+                                {seleccionada && <span className="w-1.5 h-1.5 rounded-full bg-[#A472B9]" />}
+                              </span>
+                              <span>{op.nombre}</span>
+                            </div>
+                            <span
+                              className={`text-[11px] font-semibold ${
+                                seleccionada ? 'text-[#ECEBCF]' : 'text-[#7A6B60]'
+                              }`}
+                            >
+                              {op.precio_adicional > 0 ? `+${formatCOP(op.precio_adicional)}` : 'Incluido'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* CANTIDAD DE UNIDADES */}
+              <div className="pt-1">
+                <label className="block text-xs font-bold text-[#22221E] mb-1 uppercase tracking-wider">
+                  Cantidad
                 </label>
                 <div className="flex items-center space-x-3">
                   <button
@@ -466,125 +741,134 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                   >
                     +
                   </button>
-
-                  {empaqueSugerido && (
-                    <span className="text-xs text-[#22221E] bg-[#B6BD90]/25 border border-[#B6BD90]/50 px-3 py-2 rounded-xl font-medium">
-                      📦 Empaque: {empaqueSugerido.nombre_caja}
-                    </span>
-                  )}
+                  <div className="text-xs text-[#5C4D43] font-medium pl-1">
+                    <span>{formatCOP(precioUnitario)} c/u</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Datos del Cliente */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#22221E] mb-1">
-                    Tu Nombre Completo *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. María Gómez"
-                    value={clienteNombre}
-                    onChange={(e) => setClienteNombre(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
-                  />
+              {/* DATOS DEL CLIENTE PARA EL ENCARGO */}
+              <div className="space-y-3 pt-2 border-t border-[#DDDABA]/60">
+                <h4 className="text-xs font-black uppercase tracking-wider text-[#A472B9]">
+                  Datos para tu entrega
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#22221E] mb-1">
+                      Tu Nombre Completo *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. María Gómez"
+                      value={clienteNombre}
+                      onChange={(e) => setClienteNombre(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#22221E] mb-1">
+                      Teléfono / WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="Ej. 300 123 4567"
+                      value={clienteTelefono}
+                      onChange={(e) => setClienteTelefono(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
+                    />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#22221E] mb-1">
+                      Fecha Deseada *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={fechaEntrega}
+                      onChange={(e) => setFechaEntrega(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#22221E] mb-1">
+                      Hora Aproximada
+                    </label>
+                    <input
+                      type="time"
+                      value={horaEntrega}
+                      onChange={(e) => setHoraEntrega(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-[#22221E] mb-1">
-                    Teléfono / WhatsApp *
+                    Dedicatoria o Notas Especiales
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Ej. 300 123 4567"
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
+                  <textarea
+                    rows={2}
+                    placeholder="Ej. Dedicatoria para tarjeta de regalo o instrucciones de entrega..."
+                    value={notas}
+                    onChange={(e) => setNotas(e.target.value)}
+                    className="w-full px-3.5 py-2 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none resize-none bg-white text-[#22221E]"
                   />
                 </div>
               </div>
 
-              {/* Fecha y Hora de Entrega */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#22221E] mb-1">
-                    Fecha de Entrega Deseada *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={fechaEntrega}
-                    onChange={(e) => setFechaEntrega(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
-                  />
+              {/* RESUMEN TOTAL CON PRECIO DINÁMICO */}
+              <div className="bg-[#ECEBCF]/40 p-4 rounded-2xl border-2 border-[#DDDABA] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-[#5C4D43] font-bold block uppercase tracking-wide">
+                    Resumen de tu pedido:
+                  </span>
+                  <div className="text-xs text-[#22221E] font-semibold">
+                    {[opcionTamano?.nombre, opcionForma?.nombre, opcionEmpaque?.nombre]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#22221E] mb-1">
-                    Hora Aproximada
-                  </label>
-                  <input
-                    type="time"
-                    value={horaEntrega}
-                    onChange={(e) => setHoraEntrega(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none bg-white text-[#22221E]"
-                  />
-                </div>
-              </div>
-
-              {/* Notas especiales */}
-              <div>
-                <label className="block text-xs font-bold text-[#22221E] mb-1">
-                  Dedicatoria o Notas Especiales
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Ej. Tarjeta de cumpleaños para Juan, o instrucciones de entrega..."
-                  value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
-                  className="w-full px-3.5 py-2 border-2 border-[#DDDABA] rounded-xl text-sm focus:ring-2 focus:ring-[#A472B9] focus:outline-none resize-none bg-white text-[#22221E]"
-                />
-              </div>
-
-              {/* Resumen Total */}
-              <div className="bg-[#ECEBCF]/40 p-4 rounded-2xl border-2 border-[#DDDABA] flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-[#5C4D43] font-bold block">Total a pagar:</span>
-                  <span className="text-2xl font-black text-[#22221E]">
+                <div className="text-right">
+                  <span className="text-[11px] text-[#7A6B60] block font-semibold">
+                    Total a pagar ({cantidad} und{cantidad > 1 ? 's' : ''}):
+                  </span>
+                  <span data-testid="total-dinamico" className="text-2xl font-black text-[#22221E]">
                     {formatCOP(totalCalculado)}
                   </span>
                 </div>
-                <div className="text-right text-xs text-[#5C4D43]">
-                  <span className="block font-bold">Pago contra entrega</span>
-                  <span className="text-[11px] text-[#A472B9] font-semibold">o coordinar por WhatsApp</span>
-                </div>
               </div>
+            </div>
 
-              {/* Botones de Acción */}
-              <div className="pt-2 flex items-center space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setRecetaParaPedir(null)}
-                  className="flex-1 py-3 text-[#5C4D43] hover:text-[#22221E] font-bold text-sm rounded-xl transition-colors bg-[#ECEBCF]/30 hover:bg-[#ECEBCF]/60"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={enviando}
-                  className="flex-[2] py-3 bg-[#A472B9] hover:bg-[#8C57A3] text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
-                >
-                  {enviando ? (
-                    <span>Registrando...</span>
-                  ) : (
-                    <>
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Confirmar Encargo</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+            {/* Botones de Acción */}
+            <div className="pt-4 border-t border-[#DDDABA]/60 flex items-center space-x-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setRecetaParaPedir(null)}
+                className="flex-1 py-3 text-[#5C4D43] hover:text-[#22221E] font-bold text-sm rounded-xl transition-colors bg-[#ECEBCF]/30 hover:bg-[#ECEBCF]/60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmarPedido}
+                disabled={enviando}
+                className="flex-[2] py-3 bg-[#A472B9] hover:bg-[#8C57A3] text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+              >
+                {enviando ? (
+                  <span>Registrando...</span>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Confirmar Encargo ({formatCOP(totalCalculado)})</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -614,6 +898,14 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                 <span className="text-[#5C4D43]">Cantidad:</span>
                 <span className="font-bold text-[#22221E]">{pedidoExitoso.cantidad} unidades</span>
               </div>
+              {pedidoExitoso.empaque_sugerido && (
+                <div className="flex justify-between">
+                  <span className="text-[#5C4D43]">Empaque:</span>
+                  <span className="font-bold text-[#22221E]">
+                    {pedidoExitoso.empaque_sugerido.nombre_caja}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-sm pt-1 border-t border-[#DDDABA]">
                 <span className="font-bold text-[#22221E]">Total:</span>
                 <span className="font-black text-[#A472B9]">{formatCOP(pedidoExitoso.precio_total)}</span>
@@ -625,7 +917,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
                 href={`https://wa.me/573000000000?text=${encodeURIComponent(
                   `Hola Josefina! Acabo de hacer el pedido de ${pedidoExitoso.cantidad} de ${
                     recetas.find((r) => r.id === pedidoExitoso.receta_id)?.nombre || 'Brownies'
-                  } para el ${pedidoExitoso.fecha_entrega}. Mi nombre es ${pedidoExitoso.cliente_nombre}.`
+                  } para el ${pedidoExitoso.fecha_entrega} a las ${pedidoExitoso.hora_entrega}. Mi nombre es ${pedidoExitoso.cliente_nombre}.`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
@@ -636,6 +928,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
               </a>
 
               <button
+                type="button"
                 onClick={() => setPedidoExitoso(null)}
                 className="w-full py-2.5 text-[#5C4D43] hover:text-[#22221E] text-xs font-bold transition-colors"
               >

@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white shadow-lg">
+    <header className="sticky top-0 z-40 bg-[#22221E] border-b border-[#3A3A34] text-[#ECEBCF] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* LOGO GASTROFLOW ARTISAN */}
@@ -83,8 +83,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   data-testid={`tab-${tab.id}`}
                   className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
                     active
-                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      ? 'bg-[#A472B9] text-white font-black shadow-sm'
+                      : 'text-[#ECEBCF]/80 hover:text-white hover:bg-[#2E2E29]'
                   }`}
                 >
                   <span>{tab.icon}</span>
@@ -99,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* BOTÓN VER TIENDA CLIENTE */}
             <button
               onClick={onVerComoCliente}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg shadow-sm transition"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-[#22221E] bg-[#ECEBCF] hover:bg-[#DDDABA] rounded-lg shadow-sm transition border border-[#DDDABA]"
               title="Ver la tienda exactamente como la ven tus clientes"
             >
               <span>🧁</span>
@@ -110,12 +110,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative">
               <button
                 onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 relative transition-colors"
+                className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] relative transition-colors"
                 title="Centro de Alertas & Entregas"
               >
                 <span className="text-base">🔔</span>
                 {totalAlertas > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="absolute -top-1 -right-1 bg-[#A472B9] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse shadow-xs">
                     {totalAlertas}
                   </span>
                 )}
@@ -123,15 +123,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* POPOVER DE NOTIFICACIONES */}
               {mostrarNotificaciones && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 text-slate-800 p-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <h3 className="font-bold text-sm text-slate-900 flex items-center space-x-1.5">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-[#DDDABA] z-50 text-[#22221E] p-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#DDDABA]/50">
+                    <h3 className="font-bold text-sm text-[#22221E] flex items-center space-x-1.5 font-serif">
                       <span>🔔</span>
                       <span>Alertas del Taller ({totalAlertas})</span>
                     </h3>
                     <button
                       onClick={() => setMostrarNotificaciones(false)}
-                      className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                      className="text-[#7A6B60] hover:text-[#22221E] text-sm font-bold"
                     >
                       ✕
                     </button>
@@ -168,10 +168,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                         <div className="space-y-1.5">
                           {alertasStockMinimo.map((i) => (
-                            <div key={i.id} className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                            <div key={i.id} className="p-2 bg-[#ECEBCF]/40 border border-[#DDDABA] rounded-lg flex items-center justify-between">
                               <div>
-                                <span className="font-bold text-amber-900">{i.nombre}</span>
-                                <span className="text-[11px] text-amber-700 block">
+                                <span className="font-bold text-[#22221E]">{i.nombre}</span>
+                                <span className="text-[11px] text-[#5C4D43] block">
                                   Stock: {i.stock_actual} / Mín: {i.stock_min} {i.unidad}
                                 </span>
                               </div>
@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
 
                     {totalAlertas === 0 && (
-                      <div className="text-center py-6 text-slate-400">
+                      <div className="text-center py-6 text-[#7A6B60]">
                         <span className="text-2xl block mb-1">🎉</span>
                         ¡Todo en orden en bodega y entregas!
                       </div>
@@ -197,20 +197,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 data-testid="btn-menu-datos"
                 onClick={() => setMostrarMenuDatos(!mostrarMenuDatos)}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] transition-colors"
                 title="Copia de Seguridad & Datos"
               >
                 <span>💾</span>
               </button>
               {mostrarMenuDatos && (
-                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-2 text-xs">
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-[#DDDABA] z-50 p-2 text-xs text-[#22221E]">
                   <button
                     data-testid="btn-exportar-json"
                     onClick={() => {
                       onExportarJSON();
                       setMostrarMenuDatos(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 font-bold text-slate-800 flex items-center space-x-2 transition"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ECEBCF]/50 font-bold text-[#22221E] flex items-center space-x-2 transition"
                   >
                     <span>📥</span>
                     <span>Descargar Copia JSON</span>
@@ -222,7 +222,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* BOTÓN AJUSTES */}
             <button
               onClick={onAbrirAjustes}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] transition-colors"
               title="Configuración de Costeo & Gastos Fijos"
             >
               <span>⚙️</span>
@@ -231,7 +231,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* BOTÓN CERRAR SESIÓN */}
             <button
               onClick={onCerrarSesionAdmin}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 transition-colors"
+              className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF]/80 hover:text-white transition-colors"
               title="Cerrar Sesión Admin"
             >
               <span className="text-sm">🔒</span>
@@ -240,15 +240,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* MENÚ MÓVIL */}
-        <div className="lg:hidden flex overflow-x-auto px-2 py-2 bg-slate-950 border-t border-slate-800 space-x-1 text-xs no-scrollbar">
+        <div className="lg:hidden flex overflow-x-auto px-2 py-2 bg-[#1A1A17] border-t border-[#3A3A34] space-x-1 text-xs no-scrollbar">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onCambiarVista(tab.id)}
               className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-bold flex items-center space-x-1 ${
                 vistaActual === tab.id
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  ? 'bg-[#A472B9] text-white shadow-sm'
+                  : 'text-[#ECEBCF]/80 hover:text-white hover:bg-[#2E2E29]'
               }`}
             >
               <span>{tab.icon}</span>
