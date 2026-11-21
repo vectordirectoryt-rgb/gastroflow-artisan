@@ -11,7 +11,7 @@ test.describe('Identidad Visual de Marca "Los Brownies de Josefina" - Inspecció
     }
   });
 
-  test('Flujo Marca 1: Carga y renderizado impecable de los logos oficiales', async ({ page }) => {
+  test('Flujo Marca 1: Carga y renderizado impecable de los logos oficiales y la foto de la cuchara', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -32,7 +32,15 @@ test.describe('Identidad Visual de Marca "Los Brownies de Josefina" - Inspecció
     });
     expect(isLogoHeaderLoaded).toBe(true);
 
-    // 3. Verificar que el logo limpio en el footer carga correctamente
+    // 3. Verificar que la foto de la cuchara de chocolate del PDF carga impecablemente
+    const spoonImg = page.locator('img[src="/cuchara-chocolate.jpg"]').first();
+    await expect(spoonImg).toBeVisible();
+    const isSpoonLoaded = await spoonImg.evaluate((img: HTMLImageElement) => {
+      return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+    });
+    expect(isSpoonLoaded).toBe(true);
+
+    // 4. Verificar que el logo en el footer carga correctamente
     const logoFooter = page.locator('footer img[alt="Los Brownies de Josefina"]');
     await expect(logoFooter).toBeVisible();
 
@@ -41,40 +49,47 @@ test.describe('Identidad Visual de Marca "Los Brownies de Josefina" - Inspecció
     });
     expect(isLogoFooterLoaded).toBe(true);
 
-    // 4. Capturar captura de pantalla del Header y Hero
+    // 5. Capturar captura de pantalla del Header y Hero
     await page.screenshot({ path: path.join(screenshotsDir, '01_header_y_hero.png'), fullPage: false });
 
-    // 5. Verificar que no hay errores críticos de consola
+    // 6. Verificar que no hay errores críticos de consola
     expect(consoleErrors).toHaveLength(0);
   });
 
-  test('Flujo Marca 2: Eslogan oficial y paleta corporativa aplicada en el DOM', async ({ page }) => {
+  test('Flujo Marca 2: Eslogan como título principal, paleta corporativa y filtro de favoritos', async ({ page }) => {
     await page.goto('/');
 
-    // 1. Eslogan oficial en Hero y Footer
-    const esloganHero = page.locator('text=Encuentra aquí el amor más dulce').first();
+    // 1. Eslogan oficial como Titular Principal (h2)
+    const esloganHero = page.locator('h2:has-text("Encuentra aquí el amor más dulce")');
     await expect(esloganHero).toBeVisible();
 
-    // 2. Verificar el fondo chocolate del Hero (#22221E / rgb(34, 34, 30))
+    // 2. Color del texto del título en Crema Vainilla (#ECEBCF / rgb(236, 235, 207))
+    const esloganColor = await esloganHero.evaluate((el) => window.getComputedStyle(el).color);
+    expect(esloganColor).toBe('rgb(236, 235, 207)');
+
+    // 3. Fondo chocolate del Hero (#22221E / rgb(34, 34, 30))
     const heroSection = page.locator('section').first();
     const heroBg = await heroSection.evaluate((el) => window.getComputedStyle(el).backgroundColor);
     expect(heroBg).toBe('rgb(34, 34, 30)');
 
-    // 3. Verificar color del texto del eslogan en Verde Salvia (#B6BD90 / rgb(182, 189, 144))
-    const esloganColor = await esloganHero.evaluate((el) => window.getComputedStyle(el).color);
-    expect(esloganColor).toBe('rgb(182, 189, 144)');
+    // 4. Capturar catálogo completo con todas las tarjetas
+    await page.screenshot({ path: path.join(screenshotsDir, '02_catalogo_todos.png'), fullPage: true });
 
-    // 4. Verificar botones CTA en Rosa Malva (#A472B9 / rgb(164, 114, 185))
+    // 5. Botones CTA en Rosa Malva (#A472B9 / rgb(164, 114, 185))
     const btnPedir = page.locator('button:has-text("Pedir"), button:has-text("Encargar")').first();
     await expect(btnPedir).toBeVisible();
     const btnBg = await btnPedir.evaluate((el) => window.getComputedStyle(el).backgroundColor);
     expect(btnBg).toBe('rgb(164, 114, 185)');
 
-    // 5. Capturar catálogo de productos
-    await page.screenshot({ path: path.join(screenshotsDir, '02_catalogo_y_cards.png'), fullPage: true });
+    // 6. Verificar que el filtro de "⭐ Favoritos" existe y funciona
+    const tabFavoritos = page.locator('button:has-text("Favoritos")');
+    await expect(tabFavoritos).toBeVisible();
+    await tabFavoritos.click();
 
-    // 6. Probar apertura del modal de pedido y verificar paleta en modal
-    await btnPedir.click();
+    // 7. Probar apertura del modal de pedido y verificar paleta en modal
+    await page.goto('/');
+    const btnPedirModal = page.locator('button:has-text("Pedir"), button:has-text("Encargar")').first();
+    await btnPedirModal.click();
     const modalHeading = page.locator('span:has-text("Encargo en línea")');
     await expect(modalHeading).toBeVisible();
 

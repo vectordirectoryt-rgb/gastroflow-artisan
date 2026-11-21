@@ -71,22 +71,17 @@ test.describe('GastroFlow Artisan - Suite E2E en Navegador Real', () => {
     await page.getByTestId('tab-cocina').click();
     await expect(page.getByTestId('cocina-view')).toBeVisible();
 
-    // Asegurar que hay al menos un pedido seleccionado
-    const checkbox = page.locator('input[type="checkbox"]').first();
-    if (await checkbox.isVisible()) {
-      if (!(await checkbox.isChecked())) {
-        await checkbox.check();
-      }
-    }
-
-    // Verificar que el botón de confirmar está presente
+    // Verificar que la mesa de trabajo y el botón de tandas están presentes
     const btnConfirmar = page.getByTestId('btn-confirmar-lote');
     await expect(btnConfirmar).toBeVisible();
 
-    // Si está habilitado, ejecutar el pase a cocina
+    // Si tiene insumos suficientes y está habilitado, ejecutar pase a cocina
     if (await btnConfirmar.isEnabled()) {
       await btnConfirmar.click();
       await expect(page.locator('text=iniciada! Se descontaron los insumos')).toBeVisible();
+    } else {
+      // Candado de seguridad por insumos insuficientes activo
+      await expect(page.locator('text=Insumos Insuficientes, text=Faltan insumos').first()).toBeVisible();
     }
   });
 
