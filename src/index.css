@@ -2,8 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Paleta Oficial "Los Brownies de Josefina" */
+  --brand-cream: #ECEBCF;
+  --brand-cream-light: #F5F4E4;
+  --brand-cream-dark: #DDDABA;
+  --brand-chocolate: #22221E;
+  --brand-chocolate-light: #3A3A34;
+  --brand-chocolate-dark: #141412;
+  --brand-sage: #B6BD90;
+  --brand-sage-light: #CAD0AB;
+  --brand-sage-dark: #9FA773;
+  --brand-lavender: #98A1D5;
+  --brand-lavender-light: #B4BCE2;
+  --brand-lavender-dark: #7D87C4;
+  --brand-mauve: #A472B9;
+  --brand-mauve-light: #BA8ECC;
+  --brand-mauve-dark: #8C57A3;
+}
+
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--brand-chocolate);
+}
+
+::selection {
+  background-color: #A472B9;
+  color: #ffffff;
 }
 
 ::-webkit-scrollbar {

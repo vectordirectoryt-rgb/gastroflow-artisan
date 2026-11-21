@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Insumo, Receta, Pedido, Merma, GastoFijo, AppConfig } from '../core/types';
+import { compressAndOptimizeImage } from '../core/utils/imageOptimizer';
 
 // ==========================================
 // INSUMOS (Bodega)
@@ -267,13 +268,15 @@ export async function saveConfigDB(config: AppConfig): Promise<void> {
 // ==========================================
 export async function uploadProductPhotoDB(file: File): Promise<string | null> {
   try {
-    const fileExt = file.name.split('.').pop();
+    // Optimización y compresión en el cliente (máx 1200px, WebP de alta fidelidad)
+    const fileParaSubir = await compressAndOptimizeImage(file);
+    const fileExt = fileParaSubir.name.split('.').pop() || 'webp';
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
     const filePath = `products/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('product-photos')
-      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+      .upload(filePath, fileParaSubir, { cacheControl: '31536000', upsert: false });
 
     if (uploadError) {
       console.error('Error uploading photo:', uploadError);

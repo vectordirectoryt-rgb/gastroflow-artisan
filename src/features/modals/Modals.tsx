@@ -25,6 +25,14 @@ export const ModalNuevoPedido: React.FC<ModalNuevoPedidoProps> = ({
   const [horaEntrega, setHoraEntrega] = useState('14:00');
   const [notas, setNotas] = useState('');
 
+  React.useEffect(() => {
+    if (isOpen && recetas.length > 0) {
+      if (!recetaId || !recetas.some((r) => r.id === recetaId)) {
+        setRecetaId(recetas[0].id);
+      }
+    }
+  }, [isOpen, recetas, recetaId]);
+
   const recetaSeleccionada = recetas.find((r) => r.id === recetaId);
   const precioUnitario = recetaSeleccionada?.precio_venta || 0;
   const precioTotal = precioUnitario * cantidad;
