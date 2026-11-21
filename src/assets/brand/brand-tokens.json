@@ -1,0 +1,53 @@
+{
+  "brandName": "Los Brownies de Josefina",
+  "slogan": "ENCUENTRA AQUÍ EL AMOR MÁS DULCE",
+  "colors": {
+    "cream": {
+      "name": "Crema Vainilla",
+      "hex": "#ECEBCF",
+      "rgb": "236, 235, 207",
+      "cmyk": "8%, 8%, 19%, 0%",
+      "role": "background-primary"
+    },
+    "chocolate": {
+      "name": "Marrón Chocolate",
+      "hex": "#22221E",
+      "rgb": "34, 34, 30",
+      "cmyk": "58%, 58%, 64%, 68%",
+      "role": "text-primary, logo, dark-background"
+    },
+    "sage": {
+      "name": "Verde Salvia",
+      "hex": "#B6BD90",
+      "rgb": "182, 189, 144",
+      "cmyk": "25%, 22%, 41%, 5%",
+      "role": "accent-natural, badge-stock"
+    },
+    "mauve": {
+      "name": "Rosa Malva",
+      "hex": "#A472B9",
+      "rgb": "164, 114, 185",
+      "cmyk": "32%, 53%, 24%, 5%",
+      "role": "accent-sweet, favorites, gifts"
+    },
+    "lavender": {
+      "name": "Lavanda Pervinca",
+      "hex": "#98A1D5",
+      "rgb": "152, 161, 213",
+      "cmyk": "40%, 36%, 15%, 1%",
+      "role": "accent-modern, categories"
+    },
+    "white": {
+      "name": "Blanco Puro",
+      "hex": "#FFFFFF",
+      "rgb": "255, 255, 255",
+      "cmyk": "0%, 0%, 0%, 0%",
+      "role": "card-background, contrast"
+    }
+  },
+  "typography": {
+    "titleExtended": "Akzidenz-Grotesk Extended, Syne, Space Grotesk, sans-serif",
+    "scriptAccent": "'Playfair Display', 'Great Vibes', 'Caveat', cursive",
+    "body": "'Plus Jakarta Sans', system-ui, sans-serif"
+  }
+}
