@@ -420,14 +420,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={onIrACocina}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2.5 rounded-xl transition text-xs flex items-center space-x-1.5"
+            className="bg-[#ECEBCF]/60 hover:bg-[#ECEBCF] text-[#22221E] font-bold px-3.5 py-2.5 rounded-xl transition text-xs flex items-center space-x-1.5 border border-[#DDDABA]"
           >
             <span>👨‍🍳</span>
             <span>Cocina & Lotes</span>
           </button>
           <button
             onClick={onNuevoPedido}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-1.5 text-xs sm:text-sm"
+            className="bg-[#A472B9] hover:bg-[#8C57A3] text-white font-bold px-4 py-2.5 rounded-xl shadow-sm transition-colors flex items-center space-x-1.5 text-xs sm:text-sm"
           >
             <span>➕</span>
             <span>Nuevo Encargo</span>
