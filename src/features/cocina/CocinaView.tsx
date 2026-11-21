@@ -6,8 +6,8 @@ interface CocinaViewProps {
   pedidos: Pedido[];
   recetas: Receta[];
   insumos: Insumo[];
-  onDescontarLote: (receta: Receta, escala: number) => void;
-  onCambiarEstadoPedido?: (id: string, nuevoEstado: any) => void;
+  onDescontarLote: (receta: Receta, escala: number, esParaAnaquel?: boolean) => Promise<boolean> | boolean;
+  onCambiarEstadoPedido?: (id: string, nuevoEstado: any, insumosDescontados?: boolean) => void;
   onIrABodega?: (insumo: Insumo) => void;
 }
 
@@ -190,12 +190,12 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
       return;
     }
 
-    // Descontar usando el handler
-    onDescontarLote(recetaActual, cantidadTotalTanda);
+    // Descontar insumos garantizando que son para pedidos (no inflan stock_anaquel)
+    onDescontarLote(recetaActual, cantidadTotalTanda, false);
 
-    // Mover pedidos a 'en_preparacion'
+    // Mover pedidos a 'en_preparacion' marcando insumos_descontados = true
     if (onCambiarEstadoPedido) {
-      pedidosSeleccionadosIds.forEach((id) => onCambiarEstadoPedido(id, 'en_preparacion'));
+      pedidosSeleccionadosIds.forEach((id) => onCambiarEstadoPedido(id, 'en_preparacion', true));
     }
 
     setAlertaExito(
@@ -229,7 +229,8 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
       return;
     }
 
-    onDescontarLote(recetaParaAnaquel, tandasAnaquel);
+    // Descontar insumos sumando a anaquel para venta libre
+    onDescontarLote(recetaParaAnaquel, tandasAnaquel, true);
     const piezasHorneadas = tandasAnaquel * (recetaParaAnaquel.porciones_base || 1);
     setAlertaExito(
       `🎉 ¡Tanda para vitrina horneada! Se sumaron +${piezasHorneadas} unidades de "${recetaParaAnaquel.nombre}" a tu stock de venta inmediata.`

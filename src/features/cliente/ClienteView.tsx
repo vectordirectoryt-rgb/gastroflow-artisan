@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Receta, Pedido, GrupoVariante } from '../../core/types';
+import { Receta, Pedido, GrupoVariante, AppConfig } from '../../core/types';
 import { formatCOP } from '../../core/utils/formatters';
 import {
   Sparkles,
@@ -19,6 +19,7 @@ interface ClienteViewProps {
   recetas: Receta[];
   onCrearPedidoCliente: (pedido: Omit<Pedido, 'id' | 'created_at'>) => Promise<boolean>;
   onAbrirLoginAdmin: () => void;
+  config?: AppConfig;
 }
 
 interface SlideInfo {
@@ -120,7 +121,11 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
   recetas,
   onCrearPedidoCliente,
   onAbrirLoginAdmin,
+  config,
 }) => {
+  const logoUrl = config?.branding?.logoUrl || '/logo-brownies-josefina.png';
+  const eslogan = config?.branding?.eslogan || 'Encuentra aquí el amor más dulce';
+  const subtitulo = config?.branding?.subtitulo || 'Repostería & Chocolatería Artesanal';
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('todos');
   const [recetaParaPedir, setRecetaParaPedir] = useState<Receta | null>(null);
 
@@ -268,21 +273,13 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between">
           <div className="flex items-center space-x-3 sm:space-x-4">
             {/* Logo Oficial de Los Brownies de Josefina */}
-            <div className="flex-shrink-0">
+            <div className="flex items-center">
               <img
-                src="/logo-brownies-josefina.png"
+                src={logoUrl}
                 alt="Los Brownies de Josefina"
                 className="h-14 sm:h-16 w-auto object-contain transition-transform hover:scale-105 duration-200"
               />
-            </div>
-
-            <div>
-              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[#22221E] font-serif leading-tight">
-                Los Brownies de Josefina
-              </h1>
-              <p className="text-xs text-[#5C4D43] font-medium tracking-wide">
-                Repostería & Chocolatería Artesanal
-              </p>
+              <span className="sr-only">Los Brownies de Josefina</span>
             </div>
           </div>
 
@@ -317,12 +314,12 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
             <div className="lg:col-span-8 text-center lg:text-left space-y-4">
               <div className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-[#B6BD90]/25 text-[#ECEBCF] border border-[#B6BD90]/40 shadow-sm backdrop-blur-sm">
                 <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#B6BD90]" />
-                <span>Repostería & Chocolatería Artesanal</span>
+                <span>{subtitulo}</span>
               </div>
 
               {/* TÍTULO PRINCIPAL: EL ESLOGAN OFICIAL DEL MANUAL */}
               <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight font-serif text-[#ECEBCF] leading-[1.12]">
-                Encuentra aquí el amor más dulce
+                {eslogan}
               </h2>
 
               <p className="text-[#ECEBCF]/90 text-sm sm:text-base max-w-xl mx-auto lg:mx-0 font-light leading-relaxed">
@@ -529,7 +526,7 @@ export const ClienteView: React.FC<ClienteViewProps> = ({
             Los Brownies de Josefina
           </p>
           <p className="text-xs font-semibold tracking-[0.25em] text-[#B6BD90] uppercase mb-3">
-            Encuentra aquí el amor más dulce
+            {eslogan}
           </p>
           <p className="text-xs text-[#ECEBCF]/70 max-w-md mx-auto mb-6">
             Elaboración artesanal bajo encargo con ingredientes de alta calidad para garantizar frescura incomparable.

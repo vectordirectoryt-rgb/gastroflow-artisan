@@ -229,9 +229,22 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleCambiarEstadoPedido = async (id: string, nuevoEstado: EstadoPedido) => {
+  const handleCambiarEstadoPedido = async (
+    id: string,
+    nuevoEstado: EstadoPedido,
+    insumosDescontados?: boolean
+  ) => {
     setPedidos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, estado: nuevoEstado } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          return {
+            ...p,
+            estado: nuevoEstado,
+            insumos_descontados: insumosDescontados !== undefined ? insumosDescontados : p.insumos_descontados,
+          };
+        }
+        return p;
+      })
     );
     await updatePedidoEstadoDB(id, nuevoEstado);
   };
@@ -261,16 +274,33 @@ export const App: React.FC = () => {
     await updatePedidoCobroDB(id, pedido.precio_total, 0);
   };
 
-  const handleDescontarLoteCocina = async (receta: Receta, escala: number) => {
+  const handleDescontarLoteCocina = async (
+    receta: Receta,
+    escala: number,
+    esParaAnaquel: boolean = false
+  ): Promise<boolean> => {
+    // 1. Validar disponibilidad de insumos antes de descontar (cero producción sin stock)
+    for (const ing of receta.ingredientes || []) {
+      const requerido = ing.cantidad * escala;
+      const ins = insumos.find((i) => i.id === ing.insumo_id);
+      const stockActual = ins?.stock_actual || 0;
+      if (stockActual < requerido) {
+        console.warn(`Stock insuficiente para ${ins?.nombre}: requerido ${requerido}, disponible ${stockActual}`);
+        return false;
+      }
+    }
+
     const insumosDescontados = new Map<string, number>();
     receta.ingredientes.forEach((ing) => {
       insumosDescontados.set(ing.insumo_id, ing.cantidad * escala);
     });
 
+    // 2. Descontar protegiendo que nunca quede en negativo
     const nuevosInsumos = insumos.map((i) => {
       const descuenta = insumosDescontados.get(i.id);
       if (descuenta !== undefined) {
-        const actualizado = { ...i, stock_actual: i.stock_actual - descuenta };
+        const nuevoStock = Math.max(0, i.stock_actual - descuenta);
+        const actualizado = { ...i, stock_actual: nuevoStock };
         upsertInsumoDB(actualizado);
         return actualizado;
       }
@@ -278,10 +308,15 @@ export const App: React.FC = () => {
     });
     setInsumos(nuevosInsumos);
 
-    // Sumar porciones al stock de anaquel de venta inmediata
-    const nuevasPorciones = (receta.stock_anaquel || 0) + escala * receta.porciones_base;
-    const recetaActualizada = { ...receta, stock_anaquel: nuevasPorciones };
-    await handleGuardarReceta(recetaActualizada);
+    // 3. SOLO SI ES PARA ANAQUEL/VITRINA sumamos las porciones al stock de venta directa.
+    // Si es para un encargo/pedido de cliente, NO inflamos la vitrina con productos ya vendidos.
+    if (esParaAnaquel) {
+      const nuevasPorciones = (receta.stock_anaquel || 0) + escala * (receta.porciones_base || 1);
+      const recetaActualizada = { ...receta, stock_anaquel: nuevasPorciones };
+      await handleGuardarReceta(recetaActualizada);
+    }
+
+    return true;
   };
 
   const handleGuardarInsumo = async (insumoActualizado: Insumo) => {
@@ -373,6 +408,12 @@ export const App: React.FC = () => {
     setConfig(INITIAL_CONFIG);
   };
 
+  const handleGuardarConfig = async (nuevaConfig: AppConfig) => {
+    setConfig(nuevaConfig);
+    safeSave('gf_config', nuevaConfig);
+    await saveConfigDB(nuevaConfig);
+  };
+
   const handleExportarJSON = () => {
     const backup = { insumos, recetas, pedidos, mermas, gastosFijos, config };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -392,6 +433,7 @@ export const App: React.FC = () => {
       <>
         <ClienteView
           recetas={recetas}
+          config={config}
           onCrearPedidoCliente={handleCrearPedidoCliente}
           onAbrirLoginAdmin={() => setModalLoginOpen(true)}
         />
@@ -418,6 +460,7 @@ export const App: React.FC = () => {
         onAbrirAjustes={() => setModalAjustes(true)}
         onVerComoCliente={() => setModoApp('cliente')}
         onCerrarSesionAdmin={handleCerrarSesion}
+        logoUrl={config.branding?.logoUrl}
       />
 
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
@@ -445,6 +488,7 @@ export const App: React.FC = () => {
             onCambiarEstado={handleCambiarEstadoPedido}
             onCobrarResto={handleCobrarResto}
             onAbrirWhatsApp={(p) => setPedidoParaWhatsApp(p)}
+            onIrACocina={() => setVista('cocina')}
           />
         )}
 
@@ -454,6 +498,7 @@ export const App: React.FC = () => {
             recetas={recetas}
             insumos={insumos}
             onDescontarLote={handleDescontarLoteCocina}
+            onCambiarEstadoPedido={handleCambiarEstadoPedido}
           />
         )}
 
@@ -512,6 +557,8 @@ export const App: React.FC = () => {
             recetas={recetas}
             onActualizarReceta={handleGuardarReceta}
             onVerComoCliente={() => setModoApp('cliente')}
+            config={config}
+            onActualizarConfig={handleGuardarConfig}
           />
         )}
       </main>
@@ -557,10 +604,7 @@ export const App: React.FC = () => {
         isOpen={modalAjustes}
         onClose={() => setModalAjustes(false)}
         config={config}
-        onGuardar={async (nuevaConfig) => {
-          setConfig(nuevaConfig);
-          await saveConfigDB(nuevaConfig);
-        }}
+        onGuardar={handleGuardarConfig}
       />
 
       <ModalWhatsApp

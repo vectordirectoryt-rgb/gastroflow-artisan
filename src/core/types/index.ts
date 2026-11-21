@@ -102,6 +102,7 @@ export interface Pedido {
   saldo_pendiente: number;
   estado: EstadoPedido;
   origen?: OrigenPedido;
+  insumos_descontados?: boolean;
   empaque_sugerido?: {
     nombre_caja: string;
     cantidad_cajas: number;
@@ -129,10 +130,19 @@ export interface GastoFijo {
   frecuencia: 'mensual';
 }
 
+export interface ThemeBranding {
+  logoUrl?: string;
+  eslogan?: string;
+  subtitulo?: string;
+  paletaId?: 'josefina' | 'pastel' | 'caramelo' | 'menta';
+  tipografiaId?: 'serif' | 'sans' | 'clasica';
+}
+
 export interface AppConfig {
   tarifaKwh: number;
   margenMetaDefecto: number;
   metaHorariaDefecto: number;
+  branding?: ThemeBranding;
 }
 
 export type VistaNavegacion = 'dashboard' | 'pedidos' | 'cocina' | 'bodega' | 'recetario' | 'historial' | 'tienda';

@@ -10,6 +10,7 @@ interface PedidosViewProps {
   onCambiarEstado: (id: string, nuevoEstado: EstadoPedido) => void;
   onCobrarResto: (id: string) => void;
   onAbrirWhatsApp: (pedido: Pedido) => void;
+  onIrACocina?: () => void;
 }
 
 export const PedidosView: React.FC<PedidosViewProps> = ({
@@ -19,6 +20,7 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
   onCambiarEstado,
   onCobrarResto,
   onAbrirWhatsApp,
+  onIrACocina,
 }) => {
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -149,6 +151,15 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                   {pedido.notas && (
                     <p className="mt-1 text-amber-800 italic">"{pedido.notas}"</p>
                   )}
+                  {pedido.insumos_descontados ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-1.5 border border-emerald-200">
+                      ✓ Insumos descontados de bodega
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1.5 border border-amber-200">
+                      ⏳ Insumos en bodega sin descontar
+                    </span>
+                  )}
                 </div>
 
                 {/* Fecha y Hora de Entrega */}
@@ -188,6 +199,17 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-xs font-bold transition shadow-xs"
                   >
                     💰 Cobrar Resto ({formatCOP(pedido.saldo_pendiente)})
+                  </button>
+                )}
+
+                {onIrACocina && pedido.estado === 'pendiente' && !pedido.insumos_descontados && (
+                  <button
+                    type="button"
+                    onClick={onIrACocina}
+                    className="w-full bg-[#ECEBCF] hover:bg-[#DDDABA] text-[#22221E] py-1.5 rounded-lg text-xs font-bold transition border border-[#DDDABA] flex items-center justify-center gap-1.5"
+                    title="Ir a mesa de cocina para hornear tanda y descontar insumos de bodega"
+                  >
+                    <span>👨‍🍳 Pasar a Cocina / Hornear</span>
                   </button>
                 )}
 

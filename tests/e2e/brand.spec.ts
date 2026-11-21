@@ -168,4 +168,40 @@ test.describe('Identidad Visual de Marca "Los Brownies de Josefina" & Carrusel c
 
     await page.screenshot({ path: path.join(screenshotsDir, '05_admin_dashboard.png'), fullPage: false });
   });
+
+  test('Flujo Marca 5: Catálogo Web con Gestor de Galería Multi-foto y Personalización de Marca', async ({ page }) => {
+    await page.goto('/?admin=true');
+
+    // 1. Navegar a Catálogo Web
+    const tabTienda = page.locator('[data-testid="tab-tienda"]');
+    await expect(tabTienda).toBeVisible();
+    await tabTienda.click();
+
+    // 2. Verificar encabezado y estética del Catálogo Web
+    await expect(page.locator('text=Catálogo Web — Los Brownies de Josefina')).toBeVisible();
+
+    // 3. Abrir panel de Personalizar Estética
+    const btnEstetica = page.locator('button:has-text("Personalizar Estética")');
+    await expect(btnEstetica).toBeVisible();
+    await btnEstetica.click();
+
+    // 4. Verificar inputs de eslogan y selectores de paleta
+    await expect(page.locator('text=Identidad Visual & Estilo de la Tienda')).toBeVisible();
+    await expect(page.locator('input[value="Encuentra aquí el amor más dulce"]')).toBeVisible();
+
+    // 5. Abrir Gestor de Galería del primer producto
+    const btnGaleria = page.locator('button:has-text("Galería")').first();
+    await expect(btnGaleria).toBeVisible();
+    await btnGaleria.click();
+
+    // 6. Verificar modal de Galería y sugerencias de etiquetas
+    await expect(page.locator('text=Galería del Carrusel & Presentaciones')).toBeVisible();
+    await expect(page.locator('button:has-text("Forma de Corazón")').first()).toBeVisible();
+
+    // 7. Guardar Galería
+    const btnGuardarGaleria = page.locator('button:has-text("Guardar Galería")');
+    await btnGuardarGaleria.click();
+
+    await page.screenshot({ path: path.join(screenshotsDir, '06_admin_catalogo_galeria.png'), fullPage: false });
+  });
 });
