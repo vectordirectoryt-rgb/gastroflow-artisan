@@ -1,6 +1,22 @@
 import React, { useState } from 'react';
 import { VistaNavegacion, Insumo, Pedido } from '../core/types';
 import { formatCOP } from '../core/utils/formatters';
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  ChefHat,
+  Package,
+  BookOpen,
+  History,
+  Store,
+  ExternalLink,
+  Bell,
+  Settings,
+  Download,
+  RotateCcw,
+  LogOut,
+  ChevronDown,
+} from 'lucide-react';
 
 interface NavbarProps {
   vistaActual: VistaNavegacion;
@@ -12,6 +28,7 @@ interface NavbarProps {
   onAbrirAjustes: () => void;
   onVerComoCliente: () => void;
   onCerrarSesionAdmin: () => void;
+  logoUrl?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,10 +36,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCambiarVista,
   insumos,
   pedidos,
+  onLimpiarDatos,
   onExportarJSON,
   onAbrirAjustes,
   onVerComoCliente,
   onCerrarSesionAdmin,
+  logoUrl = '/logo-brownies-josefina-clean.png',
 }) => {
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
   const [mostrarMenuDatos, setMostrarMenuDatos] = useState(false);
@@ -35,14 +54,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   const entregasHoy = pedidos.filter(p => p.fecha_entrega === hoyStr && p.estado !== 'entregado');
   const totalAlertas = alertasStockMinimo.length + entregasHoy.length;
 
-  const tabs: { id: VistaNavegacion; label: string; icon: string }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'pedidos', label: 'Libreta de Encargos', icon: '📋' },
-    { id: 'cocina', label: 'Preparación y Cocina', icon: '👨‍🍳' },
-    { id: 'bodega', label: 'Bodega de Insumos', icon: '📦' },
-    { id: 'recetario', label: 'Recetario y Costeo', icon: '📖' },
-    { id: 'historial', label: 'Auditoría e Historial', icon: '📑' },
-    { id: 'tienda', label: 'Mi Tienda', icon: '🌐' },
+  const tabs: { id: VistaNavegacion; label: string; icon: React.ReactNode }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'pedidos', label: 'Pedidos', icon: <ShoppingBag className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'cocina', label: 'Cocina', icon: <ChefHat className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'bodega', label: 'Bodega', icon: <Package className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'recetario', label: 'Recetas', icon: <BookOpen className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'historial', label: 'Historial', icon: <History className="w-3.5 h-3.5 flex-shrink-0" /> },
+    { id: 'tienda', label: 'Catálogo Web', icon: <Store className="w-3.5 h-3.5 flex-shrink-0" /> },
   ];
 
   return (
@@ -52,11 +71,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* LOGO GASTROFLOW ARTISAN */}
           <div
             onClick={() => onCambiarVista('dashboard')}
-            className="flex items-center space-x-3 cursor-pointer select-none group"
+            className="flex items-center space-x-3 cursor-pointer select-none group flex-shrink-0"
           >
             <div className="h-10 w-10 rounded-xl bg-[#ECEBCF] p-1 flex items-center justify-center shadow-md flex-shrink-0 group-hover:scale-105 transition-transform overflow-hidden border border-[#DDDABA]">
               <img
-                src="/logo-brownies-josefina-clean.png"
+                src={logoUrl}
                 alt="Los Brownies de Josefina"
                 className="h-full w-full object-contain"
               />
@@ -72,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* MENÚ DE NAVEGACIÓN DESKTOP */}
+          {/* MENÚ DE NAVEGACIÓN DESKTOP (1 sola línea, sin desbordes verticales) */}
           <nav className="hidden lg:flex items-center space-x-1" aria-label="Tabs Principales">
             {tabs.map((tab) => {
               const active = vistaActual === tab.id;
@@ -81,13 +100,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   key={tab.id}
                   onClick={() => onCambiarVista(tab.id)}
                   data-testid={`tab-${tab.id}`}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
                     active
                       ? 'bg-[#A472B9] text-white font-black shadow-sm'
                       : 'text-[#ECEBCF]/80 hover:text-white hover:bg-[#2E2E29]'
                   }`}
                 >
-                  <span>{tab.icon}</span>
+                  {tab.icon}
                   <span>{tab.label}</span>
                 </button>
               );
@@ -95,25 +114,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* ACCIONES DERECHA: VER TIENDA, NOTIFICACIONES Y AJUSTES */}
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2">
             {/* BOTÓN VER TIENDA CLIENTE */}
             <button
               onClick={onVerComoCliente}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-[#22221E] bg-[#ECEBCF] hover:bg-[#DDDABA] rounded-lg shadow-sm transition border border-[#DDDABA]"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-[#22221E] bg-[#ECEBCF] hover:bg-[#DDDABA] rounded-lg shadow-sm transition border border-[#DDDABA] whitespace-nowrap"
               title="Ver la tienda exactamente como la ven tus clientes"
             >
-              <span>🧁</span>
-              <span className="hidden sm:inline">Ver Tienda Online</span>
+              <ExternalLink className="w-3.5 h-3.5 text-[#22221E]" />
+              <span className="hidden sm:inline">Ver Tienda</span>
             </button>
 
             {/* CAMPANA DE NOTIFICACIONES */}
             <div className="relative">
               <button
                 onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
-                className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] relative transition-colors"
+                className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] relative transition-colors border border-[#3A3A34]"
                 title="Centro de Alertas & Entregas"
               >
-                <span className="text-base">🔔</span>
+                <Bell className="w-4 h-4 text-[#ECEBCF]" />
                 {totalAlertas > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#A472B9] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse shadow-xs">
                     {totalAlertas}
@@ -126,7 +145,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-[#DDDABA] z-50 text-[#22221E] p-4">
                   <div className="flex items-center justify-between pb-3 border-b border-[#DDDABA]/50">
                     <h3 className="font-bold text-sm text-[#22221E] flex items-center space-x-1.5 font-serif">
-                      <span>🔔</span>
+                      <Bell className="w-4 h-4 text-[#A472B9]" />
                       <span>Alertas del Taller ({totalAlertas})</span>
                     </h3>
                     <button
@@ -192,50 +211,72 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* MENÚ DE DATOS & COPIA DE SEGURIDAD */}
+            {/* MENÚ UNIFICADO DE TALLER: AJUSTES, BACKUP Y SESIÓN */}
             <div className="relative">
               <button
                 data-testid="btn-menu-datos"
                 onClick={() => setMostrarMenuDatos(!mostrarMenuDatos)}
-                className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] transition-colors"
-                title="Copia de Seguridad & Datos"
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] transition-colors border border-[#3A3A34]"
+                title="Configuración del taller, respaldo y sesión"
               >
-                <span>💾</span>
+                <Settings className="w-4 h-4 text-[#B6BD90]" />
+                <span className="text-xs font-bold hidden sm:inline">Taller</span>
+                <ChevronDown className="w-3 h-3 text-[#ECEBCF]/60" />
               </button>
+
               {mostrarMenuDatos && (
-                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-[#DDDABA] z-50 p-2 text-xs text-[#22221E]">
-                  <button
-                    data-testid="btn-exportar-json"
-                    onClick={() => {
-                      onExportarJSON();
-                      setMostrarMenuDatos(false);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ECEBCF]/50 font-bold text-[#22221E] flex items-center space-x-2 transition"
-                  >
-                    <span>📥</span>
-                    <span>Descargar Copia JSON</span>
-                  </button>
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-[#DDDABA] z-50 p-2 text-xs text-[#22221E] divide-y divide-[#DDDABA]/50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        onAbrirAjustes();
+                        setMostrarMenuDatos(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ECEBCF]/50 font-bold text-[#22221E] flex items-center space-x-2 transition"
+                    >
+                      <Settings className="w-4 h-4 text-[#A472B9]" />
+                      <span>Ajustes de Costeo & kWh</span>
+                    </button>
+                    <button
+                      data-testid="btn-exportar-json"
+                      onClick={() => {
+                        onExportarJSON();
+                        setMostrarMenuDatos(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#ECEBCF]/50 font-bold text-[#22221E] flex items-center space-x-2 transition"
+                    >
+                      <Download className="w-4 h-4 text-emerald-600" />
+                      <span>Descargar Copia JSON</span>
+                    </button>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        if (window.confirm('¿Seguro que deseas restablecer los datos de ejemplo del taller?')) {
+                          onLimpiarDatos();
+                        }
+                        setMostrarMenuDatos(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-rose-50 font-medium text-rose-700 flex items-center space-x-2 transition"
+                    >
+                      <RotateCcw className="w-4 h-4 text-rose-500" />
+                      <span>Restablecer Datos</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMostrarMenuDatos(false);
+                        onCerrarSesionAdmin();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 font-bold text-[#22221E] flex items-center space-x-2 transition"
+                    >
+                      <LogOut className="w-4 h-4 text-slate-500" />
+                      <span>Cerrar Sesión Admin</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* BOTÓN AJUSTES */}
-            <button
-              onClick={onAbrirAjustes}
-              className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF] transition-colors"
-              title="Configuración de Costeo & Gastos Fijos"
-            >
-              <span>⚙️</span>
-            </button>
-
-            {/* BOTÓN CERRAR SESIÓN */}
-            <button
-              onClick={onCerrarSesionAdmin}
-              className="p-2 rounded-lg bg-[#2E2E29] hover:bg-[#3A3A34] text-[#ECEBCF]/80 hover:text-white transition-colors"
-              title="Cerrar Sesión Admin"
-            >
-              <span className="text-sm">🔒</span>
-            </button>
           </div>
         </div>
 
@@ -251,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-[#ECEBCF]/80 hover:text-white hover:bg-[#2E2E29]'
               }`}
             >
-              <span>{tab.icon}</span>
+              {tab.icon}
               <span>{tab.label}</span>
             </button>
           ))}

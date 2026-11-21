@@ -211,22 +211,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (tipoGrafico === 'crecimiento') {
         const ingresosPorFecha: Record<string, number> = {};
         pedidosEnPeriodo.forEach((p) => {
-          const f = p.fecha_entrega || 'Sin fecha';
+          const f = p.fecha_entrega || hoyStr;
           ingresosPorFecha[f] = (ingresosPorFecha[f] || 0) + p.precio_total;
         });
 
-        let fechasOrdenadas = Object.keys(ingresosPorFecha).sort();
-        if (fechasOrdenadas.length === 0) {
-          fechasOrdenadas = [hoyStr];
-          ingresosPorFecha[hoyStr] = 0;
-        }
+        // 1. Construir rango de fechas continuo sin huecos temporales
+        const fechasConVenta = Object.keys(ingresosPorFecha).sort();
+        let inicioStr = fechasConVenta[0] || hoyStr;
+        let finStr = fechasConVenta[fechasConVenta.length - 1] || hoyStr;
 
-        const labels = fechasOrdenadas.map((f) => {
+        // Si el periodo es semana o mes, extender adecuadamente
+        if (inicioStr > hoyStr) inicioStr = hoyStr;
+        if (finStr < hoyStr) finStr = hoyStr;
+
+        const cursor = new Date(inicioStr + 'T12:00:00');
+        const fechaFin = new Date(finStr + 'T12:00:00');
+        const fechasContinuas: string[] = [];
+
+        while (cursor <= fechaFin && fechasContinuas.length <= 90) {
+          fechasContinuas.push(cursor.toISOString().split('T')[0]);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        if (fechasContinuas.length === 0) fechasContinuas.push(hoyStr);
+
+        // 2. Calcular Ingreso Diario y Crecimiento Acumulado Real
+        let acumuladoTotal = 0;
+        const dataPuntos: number[] = [];
+        const ventasDelDia: number[] = [];
+
+        fechasContinuas.forEach((f) => {
+          const diario = ingresosPorFecha[f] || 0;
+          acumuladoTotal += diario;
+          dataPuntos.push(acumuladoTotal);
+          ventasDelDia.push(diario);
+        });
+
+        const labels = fechasContinuas.map((f) => {
           const partes = f.split('-');
           if (partes.length === 3) return partes[2] + '/' + partes[1];
           return f;
         });
-        const dataPuntos = fechasOrdenadas.map((f) => ingresosPorFecha[f]);
 
         chartInstance.current = new Chart(ctx, {
           type: 'line',
@@ -234,17 +258,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             labels,
             datasets: [
               {
-                label: 'Ingresos por Fecha',
+                label: 'Crecimiento Acumulado',
                 data: dataPuntos,
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                borderColor: '#A472B9',
+                backgroundColor: 'rgba(164, 114, 185, 0.15)',
                 fill: true,
-                tension: 0.35,
-                pointBackgroundColor: '#b45309',
-                pointBorderColor: '#ffffff',
+                tension: 0.25,
+                pointBackgroundColor: '#8C57A3',
+                pointBorderColor: '#ECEBCF',
                 pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7,
+                pointRadius: fechasContinuas.length > 25 ? 2 : 4,
+                pointHoverRadius: 6,
               },
             ],
           },
@@ -255,8 +279,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  title: (context: any) => `Fecha: ${fechasOrdenadas[context[0].dataIndex]}`,
-                  label: (context: any) => `Ingreso: ${formatCOP(context.raw)}`,
+                  title: (context: any) => `Fecha: ${fechasContinuas[context[0].dataIndex]}`,
+                  label: (context: any) => {
+                    const idx = context.dataIndex;
+                    const dia = formatCOP(ventasDelDia[idx]);
+                    const acum = formatCOP(context.raw);
+                    return `Venta del día: ${dia} | Total Acumulado: ${acum}`;
+                  },
                 },
               },
             },
@@ -697,13 +726,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
             {/* TIPO DE GRÁFICO */}
-            <div className="flex bg-slate-100 rounded-xl p-1 space-x-1 text-xs">
+            <div className="flex bg-[#ECEBCF]/40 border border-[#DDDABA] rounded-xl p-1 space-x-1 text-xs">
               <button
                 onClick={() => setTipoGrafico('crecimiento')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition ${
                   tipoGrafico === 'crecimiento'
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#A472B9] text-white shadow-xs'
+                    : 'text-[#22221E] hover:text-[#22221E] hover:bg-[#ECEBCF]/60'
                 }`}
               >
                 📈 Crecimiento (Ingreso vs Tiempo)
@@ -712,8 +741,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => setTipoGrafico('ventas_producto')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition ${
                   tipoGrafico === 'ventas_producto'
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#A472B9] text-white shadow-xs'
+                    : 'text-[#22221E] hover:text-[#22221E] hover:bg-[#ECEBCF]/60'
                 }`}
               >
                 🥐 Ventas por Producto
@@ -722,8 +751,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => setTipoGrafico('ingresos_ganancia')}
                 className={`px-3 py-1.5 rounded-lg font-bold transition ${
                   tipoGrafico === 'ingresos_ganancia'
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#A472B9] text-white shadow-xs'
+                    : 'text-[#22221E] hover:text-[#22221E] hover:bg-[#ECEBCF]/60'
                 }`}
               >
                 ⚖️ Dinero vs Ganancia
