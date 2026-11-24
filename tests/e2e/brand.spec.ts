@@ -204,4 +204,69 @@ test.describe('Identidad Visual de Marca "Los Brownies de Josefina" & Carrusel c
 
     await page.screenshot({ path: path.join(screenshotsDir, '06_admin_catalogo_galeria.png'), fullPage: false });
   });
+
+  test('Flujo Marca 6: Cuadrícula Móvil de 2 Columnas, Carrito y Reconocimiento de Usuario', async ({ page }) => {
+    // 1. Emular celular moderno (390 x 844 px)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    // 2. Verificar cuadrícula móvil de 2 columnas
+    const gridProductos = page.locator('div.grid.grid-cols-2').first();
+    await expect(gridProductos).toBeVisible();
+
+    // 3. Abrir primer producto y añadir al carrito
+    const btnPrimerProducto = page.locator('button:has-text("Encargar")').first();
+    await btnPrimerProducto.click();
+    await expect(page.locator('text=Personaliza tu encargo')).toBeVisible();
+
+    const btnAlCarrito = page.locator('button:has-text("Al Carrito")');
+    await expect(btnAlCarrito).toBeVisible();
+    await btnAlCarrito.click();
+
+    // 4. Verificar toast de notificación
+    await expect(page.locator('text=agregado al carrito')).toBeVisible();
+
+    // 5. Verificar barra flotante de carrito móvil
+    const barraFlotante = page.locator('button:has-text("Ver Carrito")');
+    await expect(barraFlotante).toBeVisible();
+
+    await page.screenshot({ path: path.join(screenshotsDir, '07_mobile_grid_y_barra.png'), fullPage: false });
+
+    // 6. Abrir drawer de carrito
+    await barraFlotante.click();
+    await expect(page.locator('text=Tu Carrito')).toBeVisible();
+
+    // 7. Llenar datos y probar método de entrega a domicilio
+    await page.locator('button:has-text("Envío a Domicilio")').click();
+    await page.fill('input[placeholder="Ej. María Gómez"]', 'Camila Gómez');
+    await page.fill('input[placeholder="Ej. 300 123 4567"]', '3109876543');
+    await page.fill('input[placeholder*="Dirección exacta"]', 'Calle 10 # 40-20 Apto 402');
+    await page.fill('input[placeholder*="Barrio"]', 'El Poblado');
+
+    // 8. Probar activación de dedicatoria de regalo
+    const btnRegalo = page.locator('button:has-text("¿Es un regalo?")');
+    await btnRegalo.click();
+    await page.fill('textarea[placeholder*="mensaje para la tarjeta"]', '¡Feliz cumpleaños con todo mi amor!');
+
+    // 9. Verificar tarjetas de copiado de cuenta Nequi/Bancolombia
+    await expect(page.locator('text=Nequi / Daviplata')).toBeVisible();
+    await expect(page.locator('text=Bancolombia Ahorros')).toBeVisible();
+
+    await page.screenshot({ path: path.join(screenshotsDir, '08_mobile_checkout_drawer.png'), fullPage: false });
+
+    // 10. Confirmar encargo completo
+    const btnConfirmarCheckout = page.locator('div[role="dialog"] button:has-text("Confirmar Encargo"), div button:has-text("Confirmar Encargo")').last();
+    await btnConfirmarCheckout.click();
+
+    // 11. Modal de éxito
+    await expect(page.locator('text=¡Pedido Recibido con Éxito!')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Confirmar por WhatsApp')).toBeVisible();
+
+    await page.screenshot({ path: path.join(screenshotsDir, '09_mobile_pedido_confirmado.png'), fullPage: false });
+
+    // 12. Cerrar y verificar reconocimiento del cliente en siguiente visita
+    await page.locator('button:has-text("Cerrar y seguir navegando")').click();
+    await page.locator('button[title="Ver mi carrito"]').click();
+    await expect(page.locator('text=¡Hola de nuevo, Camila Gómez!')).toBeVisible();
+  });
 });

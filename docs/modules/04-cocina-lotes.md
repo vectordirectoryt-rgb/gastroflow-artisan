@@ -19,6 +19,23 @@ Antes de preparar una tanda de $N$ lotes o porciones de una receta:
 
 ---
 
+## 3. Asistente de Horneo por Lote / Molde Completo & Excedentes a Vitrina
+
+En talleres de repostería artesanal, hornear porciones fraccionadas es ineficiente; por lo tanto, la dueña suele preparar el **molde completo**:
+
+1. **Agrupación Consolidada por Receta**:
+   El sistema agrupa automáticamente los requerimientos de la misma receta a través de múltiples encargos, incluso si formaban parte de pedidos multilínea con otros postres.
+2. **Modo Molde Completo vs Exacto**:
+   - `Molde Completo`: Hornea en múltiplos de `porciones_base` (ej. 1 molde de 16 brownies).
+   - `Exacto Encargos`: Hornea únicamente las unidades requeridas.
+3. **Gestión Automática de Excedentes a Vitrina (`stock_anaquel`)**:
+   Si los encargos suman 10 brownies y se hornea 1 molde de 16 unidades:
+   - Las 10 unidades cubren los pedidos y pasan a `En Preparación`.
+   - Las 6 unidades sobrantes se suman de forma automática a `receta.stock_anaquel` (Vitrina).
+   - El catálogo del cliente detecta inmediatamente el nuevo stock disponible para despacho en el mismo día sin tener que hornear nuevamente.
+
+---
+
 ## 3. Registro de Mermas y Desperdicios
 
 ```typescript

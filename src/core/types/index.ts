@@ -87,15 +87,40 @@ export interface Receta {
 
 export type EstadoPedido = 'pendiente' | 'en_preparacion' | 'terminado' | 'entregado' | 'cancelado';
 export type OrigenPedido = 'admin' | 'cliente';
+export type MetodoEntrega = 'recoger' | 'domicilio';
+export type ModoEntregaMixta = 'todo_junto' | 'separado';
+
+export interface ItemPedido {
+  id?: string;
+  receta_id: string;
+  receta_nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  detalles_variante?: string; // ej: "Individual | Forma Corazón | Cajita de Regalo"
+  foto_url?: string;
+  empaque_sugerido?: {
+    nombre_caja: string;
+    cantidad_cajas: number;
+  };
+}
 
 export interface Pedido {
   id: string;
   cliente_nombre: string;
   cliente_telefono: string;
-  receta_id: string;
-  cantidad: number;
+  receta_id: string; // Compatibilidad hacia atrás (primer producto o único)
+  cantidad: number;  // Compatibilidad hacia atrás
+  items?: ItemPedido[]; // Lista de productos del carrito
+  metodo_entrega?: MetodoEntrega;
+  direccion_entrega?: string;
+  barrio_entrega?: string;
+  mensaje_tarjeta?: string; // Dedicatoria de regalo
+  modo_entrega_mixta?: ModoEntregaMixta;
   fecha_entrega: string; // YYYY-MM-DD
   hora_entrega: string;  // HH:MM
+  fecha_entrega_secundaria?: string; // Si elige entregas separadas para hoy y mañana
+  hora_entrega_secundaria?: string;
   notas: string;
   precio_total: number;
   abono: number;
@@ -136,6 +161,11 @@ export interface ThemeBranding {
   subtitulo?: string;
   paletaId?: 'josefina' | 'pastel' | 'caramelo' | 'menta';
   tipografiaId?: 'serif' | 'sans' | 'clasica';
+  porcentajeAnticipo?: number; // 50 o 100
+  telefonoWhatsApp?: string;
+  nequiNumero?: string;
+  bancolombiaNumero?: string;
+  direccionTaller?: string;
 }
 
 export interface AppConfig {

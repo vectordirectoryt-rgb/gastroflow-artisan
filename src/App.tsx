@@ -277,7 +277,8 @@ export const App: React.FC = () => {
   const handleDescontarLoteCocina = async (
     receta: Receta,
     escala: number,
-    esParaAnaquel: boolean = false
+    esParaAnaquel: boolean = false,
+    excedenteAnaquel: number = 0
   ): Promise<boolean> => {
     // 1. Validar disponibilidad de insumos antes de descontar (cero producción sin stock)
     for (const ing of receta.ingredientes || []) {
@@ -308,10 +309,13 @@ export const App: React.FC = () => {
     });
     setInsumos(nuevosInsumos);
 
-    // 3. SOLO SI ES PARA ANAQUEL/VITRINA sumamos las porciones al stock de venta directa.
-    // Si es para un encargo/pedido de cliente, NO inflamos la vitrina con productos ya vendidos.
+    // 3. Si es para anaquel directo O si hubo excedente de un molde completo, sumamos al stock de vitrina
     if (esParaAnaquel) {
       const nuevasPorciones = (receta.stock_anaquel || 0) + escala * (receta.porciones_base || 1);
+      const recetaActualizada = { ...receta, stock_anaquel: nuevasPorciones };
+      await handleGuardarReceta(recetaActualizada);
+    } else if (excedenteAnaquel > 0) {
+      const nuevasPorciones = (receta.stock_anaquel || 0) + excedenteAnaquel;
       const recetaActualizada = { ...receta, stock_anaquel: nuevasPorciones };
       await handleGuardarReceta(recetaActualizada);
     }

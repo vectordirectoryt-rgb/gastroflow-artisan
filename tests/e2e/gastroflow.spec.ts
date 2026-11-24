@@ -81,7 +81,7 @@ test.describe('GastroFlow Artisan - Suite E2E en Navegador Real', () => {
       await expect(page.locator('text=iniciada! Se descontaron los insumos')).toBeVisible();
     } else {
       // Candado de seguridad por insumos insuficientes activo
-      await expect(page.locator('text=Insumos Insuficientes, text=Faltan insumos').first()).toBeVisible();
+      await expect(page.locator('text=Insumos Insuficientes').or(page.locator('text=Faltan insumos')).first()).toBeVisible();
     }
   });
 

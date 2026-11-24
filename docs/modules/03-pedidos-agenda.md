@@ -54,7 +54,12 @@ stateDiagram-v2
 ---
 
 ## 5. Encargos desde Tienda Online ("Los Brownies de Josefina")
-- **Carrusel Etiquetado**: Vista interactiva con badges visibles en cada fotografía para identificar la presentación, forma (ej. Cuadrado, Corazón) o empaque (ej. Individual, Cajita de regalo).
-- **Precio Dinámico en Vivo**: El valor unitario y total se recalculan en tiempo real al seleccionar variantes de tamaño, forma o presentación y al modificar la cantidad.
-- **Compatibilidad con Supabase**: Las especificaciones seleccionadas se codifican de forma transparente en el campo `notas` (`[Variantes: ...]`) y `empaque_sugerido`, asegurando que la base de datos almacene los detalles exactos sin alterar el esquema relacional.
-- **Confirmación y WhatsApp**: Al confirmar el encargo, la pantalla de éxito genera automáticamente el enlace a WhatsApp con el detalle completo de las opciones elegidas.
+- **Experiencia Móvil First en Cuadrícula Táctil (2 Columnas)**: Los productos en smartphones se organizan en `grid-cols-2` con fotografías cuadradas, badges claros y botones ergonómicos, evitando listas verticales infinitas.
+- **Carrusel Etiquetado y Desacoplado**: Vista interactiva con badges visibles en cada fotografía para identificar la presentación o empaque. El modal permite personalizar y elegir entre `[+ Al Carrito]` (para seguir explorando) o `[Confirmar Encargo]` (checkout directo).
+- **Carrito de Compras Multilínea (`ItemPedido[]`)**: Barra flotante inferior en celular con drawer de resumen, control de cantidades (+ / -), subtotales y detalle de variantes seleccionadas.
+- **Reconocimiento Silencioso de Usuario**: El cliente diligencia sus datos de contacto y entrega una sola vez; en futuras compras la app lo reconoce con el saludo *"¡Hola de nuevo, [Nombre]! 👋"* y autocompleta automáticamente su perfil (`localStorage: gf_cliente_perfil`).
+- **Métodos de Entrega**: Selector entre `🏪 Recoger en Taller` y `🛵 Envío a Domicilio` (con captura de dirección y barrio).
+- **Tarjeta de Regalo**: Acordeón opcional para ingresar dedicatorias personalizadas (`[DEDICATORIA: ...]`), que se muestran de forma destacada en la tarjeta del pedido.
+- **Disponibilidad Inteligente (Vitrina vs Bajo Encargo)**: Detección automática en el carrito si los productos están listos para entrega inmediata o si requieren horneo, ofreciendo entrega dividida (lo disponible hoy y el horneo mañana) o consolidada.
+- **Transferencia Rápida con Copiado en 1 Clic**: Cuentas Nequi / Daviplata y Bancolombia integradas con botón de copiado rápido al portapapeles y confirmación por WhatsApp.
+- **Compatibilidad con Supabase**: Los detalles de items múltiples, entrega y dedicatoria se serializan en el campo `notas` asegurando integridad total con la base de datos relacional.
