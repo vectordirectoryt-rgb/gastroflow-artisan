@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pedido, Receta, EstadoPedido } from '../../core/types';
 import { formatCOP, formatFecha } from '../../core/utils/formatters';
-import { Plus, Search, MessageSquare, CheckCircle, Clock, ChefHat, PackageCheck, AlertCircle } from 'lucide-react';
+import { Plus, Search, MessageSquare, CheckCircle, Clock, ChefHat, PackageCheck, AlertCircle, Store, MapPin, Gift, Layers } from 'lucide-react';
 
 interface PedidosViewProps {
   pedidos: Pedido[];
@@ -126,6 +126,21 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
         {pedidosFiltrados.map((pedido) => {
           const receta = recetasMap.get(pedido.receta_id);
           const tieneSaldo = pedido.saldo_pendiente > 0;
+          const tieneItems = pedido.items && pedido.items.length > 0;
+
+          // Extraer información enriquecida de notas
+          const lineasNotas = (pedido.notas || '').split('\n');
+          const dedicatoria = pedido.mensaje_tarjeta || lineasNotas.find((l) => l.startsWith('[DEDICATORIA:'))?.replace('[DEDICATORIA:', '').replace(/\]$/, '').trim();
+          const entregaStr = pedido.metodo_entrega === 'domicilio'
+            ? `Domicilio: ${pedido.direccion_entrega || ''} ${pedido.barrio_entrega ? `(${pedido.barrio_entrega})` : ''}`.trim()
+            : pedido.metodo_entrega === 'recoger'
+            ? 'Recoger en Taller'
+            : lineasNotas.find((l) => l.startsWith('[ENTREGA:'))?.replace('[ENTREGA:', '').replace(/\]$/, '').trim();
+          const esModoMixto = pedido.modo_entrega_mixta === 'separado' || (pedido.notas || '').includes('MODO ENTREGA: En 2 Entregas');
+          const notasLibres = lineasNotas
+            .filter((l) => !l.startsWith('[ITEMS:') && !l.startsWith('[ENTREGA:') && !l.startsWith('[DEDICATORIA:') && !l.startsWith('[MODO ENTREGA:'))
+            .join(' ')
+            .trim();
 
           return (
             <div
@@ -143,20 +158,82 @@ export const PedidosView: React.FC<PedidosViewProps> = ({
                   <div>{getBadgeEstado(pedido.estado)}</div>
                 </div>
 
-                {/* Detalle del producto */}
-                <div className="mt-3.5 p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-xs">
-                  <span className="font-bold text-amber-950 block">
-                    {pedido.cantidad}x {receta?.nombre || 'Producto personalizado'}
-                  </span>
-                  {pedido.notas && (
-                    <p className="mt-1 text-amber-800 italic">"{pedido.notas}"</p>
+                {/* Métodos de Entrega y Badges */}
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {entregaStr && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                      {entregaStr.toLowerCase().includes('domicilio') ? (
+                        <MapPin className="w-3 h-3 text-[#A472B9]" />
+                      ) : (
+                        <Store className="w-3 h-3 text-[#B6BD90]" />
+                      )}
+                      <span>{entregaStr}</span>
+                    </span>
                   )}
+                  {esModoMixto && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200">
+                      <Layers className="w-3 h-3 text-amber-600" />
+                      <span>2 Entregas (Vitrina + Horneo)</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Detalle del producto (Soporta múltiples items o producto individual) */}
+                <div className="mt-2.5 p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-xs space-y-2">
+                  {tieneItems ? (
+                    <div className="space-y-1.5 divide-y divide-amber-200/50">
+                      {pedido.items!.map((item, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'pt-1.5' : ''} flex items-start justify-between gap-2`}>
+                          <div>
+                            <span className="font-bold text-amber-950 block">
+                              {item.cantidad}x {item.receta_nombre}
+                            </span>
+                            {item.detalles_variante && (
+                              <span className="text-[10px] text-amber-800/80 block">
+                                {item.detalles_variante}
+                              </span>
+                            )}
+                            {item.empaque_sugerido?.nombre_caja && (
+                              <span className="text-[9px] text-[#A472B9] font-medium block">
+                                📦 {item.empaque_sugerido.nombre_caja}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-black text-amber-900 text-xs flex-shrink-0">
+                            {formatCOP(item.subtotal)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-bold text-amber-950 block">
+                        {pedido.cantidad}x {receta?.nombre || 'Producto personalizado'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tarjeta de Regalo / Dedicatoria */}
+                  {dedicatoria && (
+                    <div className="p-2 bg-white/90 rounded-lg border border-amber-200 text-amber-900 text-[11px] flex items-start gap-1.5">
+                      <Gift className="w-3.5 h-3.5 text-[#A472B9] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-[10px] text-[#A472B9] uppercase">Dedicatoria para tarjeta:</span>
+                        <span className="italic">"{dedicatoria}"</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {notasLibres && (
+                    <p className="mt-1 text-amber-800 italic text-[11px]">"{notasLibres}"</p>
+                  )}
+
                   {pedido.insumos_descontados ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-1.5 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-1 border border-emerald-200">
                       ✓ Insumos descontados de bodega
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1.5 border border-amber-200">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 border border-amber-200">
                       ⏳ Insumos en bodega sin descontar
                     </span>
                   )}

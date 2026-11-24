@@ -6,7 +6,12 @@ interface CocinaViewProps {
   pedidos: Pedido[];
   recetas: Receta[];
   insumos: Insumo[];
-  onDescontarLote: (receta: Receta, escala: number, esParaAnaquel?: boolean) => Promise<boolean> | boolean;
+  onDescontarLote: (
+    receta: Receta,
+    escala: number,
+    esParaAnaquel?: boolean,
+    excedenteAnaquel?: number
+  ) => Promise<boolean> | boolean;
   onCambiarEstadoPedido?: (id: string, nuevoEstado: any, insumosDescontados?: boolean) => void;
   onIrABodega?: (insumo: Insumo) => void;
 }
@@ -30,6 +35,10 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
   });
   const [pesajeCheck, setPesajeCheck] = useState<Record<string, boolean>>({});
   const [alertaExito, setAlertaExito] = useState<string | null>(null);
+
+  // Estados para Hornear por Molde / Tanda con Excedente
+  const [modoMolde, setModoMolde] = useState<'molde_completo' | 'exacto'>('molde_completo');
+  const [tandasMolde, setTandasMolde] = useState<number>(1);
 
   // Estados para Hornear para Anaquel
   const [recetaAnaquelId, setRecetaAnaquelId] = useState<string>(recetas[0]?.id || '');
@@ -76,19 +85,36 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
     });
   }, [filtroEstadoCocina, pedidosPorHornear, pedidosEnPreparacion, filtroFecha]);
 
-  // Agrupación por receta
+  // Agrupación por receta, considerando items individuales de cada pedido
   const recetasConPedidos = useMemo(() => {
-    const mapa: Record<string, Pedido[]> = {};
+    const mapa: Record<string, { pedido: Pedido; cantidad: number; detalles?: string }[]> = {};
+
     pedidosParaMostrar.forEach((p) => {
-      if (!mapa[p.receta_id]) mapa[p.receta_id] = [];
-      mapa[p.receta_id].push(p);
+      if (p.items && p.items.length > 0) {
+        p.items.forEach((item) => {
+          if (!mapa[item.receta_id]) mapa[item.receta_id] = [];
+          mapa[item.receta_id].push({
+            pedido: p,
+            cantidad: item.cantidad,
+            detalles: item.detalles_variante,
+          });
+        });
+      } else if (p.receta_id) {
+        if (!mapa[p.receta_id]) mapa[p.receta_id] = [];
+        mapa[p.receta_id].push({
+          pedido: p,
+          cantidad: p.cantidad,
+          detalles: undefined,
+        });
+      }
     });
 
     return recetas
       .filter((r) => mapa[r.id] && mapa[r.id].length > 0)
       .map((r) => ({
         receta: r,
-        pedidos: mapa[r.id],
+        itemsHorneo: mapa[r.id],
+        pedidos: Array.from(new Set(mapa[r.id].map((x) => x.pedido))),
       }));
   }, [recetas, pedidosParaMostrar]);
 
@@ -110,6 +136,7 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
 
   const recetaActual = recetas.find((r) => r.id === recetaSeleccionadaId);
   const grupoActual = recetasConPedidos.find((item) => item.receta.id === recetaSeleccionadaId);
+  const itemsDeEstaReceta = grupoActual ? grupoActual.itemsHorneo : [];
   const pedidosDeEstaReceta = grupoActual ? grupoActual.pedidos : [];
 
   const handleSeleccionarReceta = (recetaId: string) => {
@@ -139,7 +166,33 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
   };
 
   const pedidosSeleccionados = pedidosDeEstaReceta.filter((p) => pedidosSeleccionadosIds.includes(p.id));
-  const cantidadTotalTanda = pedidosSeleccionados.reduce((sum, p) => sum + p.cantidad, 0);
+  const itemsSeleccionados = itemsDeEstaReceta.filter((it) => pedidosSeleccionadosIds.includes(it.pedido.id));
+  const cantidadRequeridaEncargos = itemsSeleccionados.reduce((sum, it) => sum + it.cantidad, 0);
+  const cantidadTotalTanda = cantidadRequeridaEncargos;
+
+  // Porciones por molde
+  const porcionesPorMolde = recetaActual?.porciones_base || 1;
+  const tandasSugeridas = Math.max(1, Math.ceil(cantidadRequeridaEncargos / porcionesPorMolde));
+
+  // Sincronizar tandas al cambiar los pedidos seleccionados
+  useEffect(() => {
+    if (cantidadRequeridaEncargos > 0) {
+      setTandasMolde(tandasSugeridas);
+    }
+  }, [cantidadRequeridaEncargos, tandasSugeridas]);
+
+  const porcionesProducidas =
+    modoMolde === 'molde_completo'
+      ? tandasMolde * porcionesPorMolde
+      : cantidadRequeridaEncargos;
+
+  const excedenteVitrina = Math.max(0, porcionesProducidas - cantidadRequeridaEncargos);
+
+  // Escala para cálculo y descuento de insumos
+  const escalaInsumos =
+    porcionesPorMolde > 1
+      ? (modoMolde === 'molde_completo' ? tandasMolde : (cantidadRequeridaEncargos / porcionesPorMolde))
+      : porcionesProducidas;
 
   // Validación de stock para la tanda
   const validacionStockTanda = useMemo(() => {
@@ -150,7 +203,7 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
     const faltantes: any[] = [];
     const ingredientesEscalados = (recetaActual.ingredientes || []).map((ing) => {
       const ins = insumos.find((i) => i.id === ing.insumo_id);
-      const cantidadRequerida = ing.cantidad * cantidadTotalTanda;
+      const cantidadRequerida = Math.round(ing.cantidad * escalaInsumos);
       const stockActual = ins?.stock_actual || 0;
       const falta = Math.max(0, cantidadRequerida - stockActual);
 
@@ -180,7 +233,7 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
       hayFaltantes: faltantes.length > 0,
       ingredientesEscalados,
     };
-  }, [recetaActual, cantidadTotalTanda, insumos]);
+  }, [recetaActual, cantidadTotalTanda, escalaInsumos, insumos]);
 
   // Confirmar Tanda: Descuenta y mueve a 'en_preparacion'
   const handleConfirmarTanda = () => {
@@ -190,8 +243,8 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
       return;
     }
 
-    // Descontar insumos garantizando que son para pedidos (no inflan stock_anaquel)
-    onDescontarLote(recetaActual, cantidadTotalTanda, false);
+    // Descontar insumos garantizando que son para pedidos y guardando excedente en vitrina
+    onDescontarLote(recetaActual, escalaInsumos, false, excedenteVitrina);
 
     // Mover pedidos a 'en_preparacion' marcando insumos_descontados = true
     if (onCambiarEstadoPedido) {
@@ -199,7 +252,9 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
     }
 
     setAlertaExito(
-      `¡Tanda de "${recetaActual.nombre}" iniciada! Se descontaron los insumos de bodega y los ${pedidosSeleccionados.length} encargos pasaron a "En Preparación".`
+      `¡Tanda de "${recetaActual.nombre}" iniciada! Se descontaron los insumos de bodega y los ${pedidosSeleccionados.length} encargos pasaron a "En Preparación"${
+        excedenteVitrina > 0 ? ` (+${excedenteVitrina} porciones excedentes guardadas en vitrina)` : ''
+      }.`
     );
     setPedidosSeleccionadosIds([]);
     setPesajeCheck({});
@@ -242,11 +297,23 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
   const consolidadoCompras = useMemo(() => {
     const mapa: Record<string, number> = {};
     pedidosPorHornear.forEach((p) => {
-      const rec = recetas.find((r) => r.id === p.receta_id);
-      if (rec) {
-        (rec.ingredientes || []).forEach((ing) => {
-          mapa[ing.insumo_id] = (mapa[ing.insumo_id] || 0) + ing.cantidad * p.cantidad;
+      if (p.items && p.items.length > 0) {
+        p.items.forEach((item) => {
+          const rec = recetas.find((r) => r.id === item.receta_id);
+          if (rec) {
+            const factor = (rec.porciones_base || 1) > 1 ? item.cantidad / rec.porciones_base : item.cantidad;
+            (rec.ingredientes || []).forEach((ing) => {
+              mapa[ing.insumo_id] = (mapa[ing.insumo_id] || 0) + ing.cantidad * factor;
+            });
+          }
         });
+      } else {
+        const rec = recetas.find((r) => r.id === p.receta_id);
+        if (rec) {
+          (rec.ingredientes || []).forEach((ing) => {
+            mapa[ing.insumo_id] = (mapa[ing.insumo_id] || 0) + ing.cantidad * p.cantidad;
+          });
+        }
       }
     });
 
@@ -412,25 +479,28 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
                 </span>
                 <div className="space-y-1.5">
                   {recetasConPedidos.length > 0 ? (
-                    recetasConPedidos.map(({ receta, pedidos: peds }) => (
-                      <button
-                        key={receta.id}
-                        onClick={() => handleSeleccionarReceta(receta.id)}
-                        className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between ${
-                          recetaSeleccionadaId === receta.id
-                            ? 'bg-amber-50 border-amber-300 shadow-xs'
-                            : 'bg-white border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div>
-                          <span className="font-extrabold text-slate-900 text-xs block">{receta.nombre}</span>
-                          <span className="text-[11px] text-slate-500">
-                            {peds.length} encargos ({peds.reduce((s, p) => s + p.cantidad, 0)} unidades)
-                          </span>
-                        </div>
-                        <span className="text-amber-600 font-bold text-sm">➔</span>
-                      </button>
-                    ))
+                    recetasConPedidos.map(({ receta, pedidos: peds, itemsHorneo }) => {
+                      const totalUnidades = itemsHorneo.reduce((s, it) => s + it.cantidad, 0);
+                      return (
+                        <button
+                          key={receta.id}
+                          onClick={() => handleSeleccionarReceta(receta.id)}
+                          className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between ${
+                            recetaSeleccionadaId === receta.id
+                              ? 'bg-amber-50 border-amber-300 shadow-xs'
+                              : 'bg-white border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>
+                            <span className="font-extrabold text-slate-900 text-xs block">{receta.nombre}</span>
+                            <span className="text-[11px] text-slate-500">
+                              {peds.length} encargos ({totalUnidades} unidades)
+                            </span>
+                          </div>
+                          <span className="text-amber-600 font-bold text-sm">➔</span>
+                        </button>
+                      );
+                    })
                   ) : (
                     <p className="text-xs text-slate-400 py-4 text-center">
                       No hay encargos en este estado y filtro de fecha.
@@ -457,6 +527,11 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {pedidosDeEstaReceta.map((p) => {
                       const estaMarcado = pedidosSeleccionadosIds.includes(p.id);
+                      // Cantidad e item específico para esta receta
+                      const itemParaReceta = p.items?.find((it) => it.receta_id === recetaActual.id);
+                      const cantEspecifica = itemParaReceta ? itemParaReceta.cantidad : p.cantidad;
+                      const varianteTexto = itemParaReceta?.detalles_variante;
+
                       return (
                         <div
                           key={p.id}
@@ -470,7 +545,7 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
                           <div>
                             <span className="font-bold text-slate-900">{p.cliente_nombre}</span>
                             <span className="text-slate-500 block text-[11px]">
-                              {p.cantidad} unidad(es) • Entrega: {p.fecha_entrega} {p.hora_entrega || ''}
+                              {cantEspecifica} unidad(es) {varianteTexto ? `(${varianteTexto})` : ''} • Entrega: {p.fecha_entrega} {p.hora_entrega || ''}
                             </span>
                           </div>
                           <input
@@ -510,6 +585,81 @@ export const CocinaView: React.FC<CocinaViewProps> = ({
                       <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1.5 rounded-xl border border-emerald-200">
                         ✓ Despensa Lista (100%)
                       </span>
+                    )}
+                  </div>
+
+                  {/* ASISTENTE DE HORNEO POR TANDA / MOLDE COMPLETO */}
+                  <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/70 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
+                          Modo de Horneo en Taller
+                        </span>
+                        <span className="text-xs font-black text-slate-900">
+                          Molde base: {porcionesPorMolde} {porcionesPorMolde === 1 ? 'unidad' : 'porciones'} por tanda
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1 bg-white p-0.5 rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setModoMolde('molde_completo')}
+                          className={`px-2.5 py-1 rounded text-xs font-bold transition ${
+                            modoMolde === 'molde_completo'
+                              ? 'bg-slate-900 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Molde Completo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModoMolde('exacto')}
+                          className={`px-2.5 py-1 rounded text-xs font-bold transition ${
+                            modoMolde === 'exacto'
+                              ? 'bg-slate-900 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Exacto Encargos
+                        </button>
+                      </div>
+                    </div>
+
+                    {modoMolde === 'molde_completo' && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200/50 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-slate-600 font-medium">Tandas a preparar:</span>
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => setTandasMolde((t) => Math.max(1, t - 1))}
+                              className="w-6 h-6 rounded bg-white border border-slate-200 font-bold text-xs flex items-center justify-center hover:bg-slate-100"
+                            >
+                              -
+                            </button>
+                            <span className="font-black px-1.5 text-xs text-slate-900">
+                              {tandasMolde} ({porcionesProducidas} unds)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setTandasMolde((t) => t + 1)}
+                              className="w-6 h-6 rounded bg-white border border-slate-200 font-bold text-xs flex items-center justify-center hover:bg-slate-100"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {excedenteVitrina > 0 ? (
+                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-300">
+                            ✨ Excedente a Vitrina: +{excedenteVitrina} unds
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-500">
+                            Cubre exactamente los encargos
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
